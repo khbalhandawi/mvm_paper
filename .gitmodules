@@ -1,0 +1,3 @@
+[submodule "mvmlib"]
+	path = mvmlib
+	url = https://github.com/sed-group/mvmlib

@@ -1,0 +1,12 @@
+{
+    "python.pythonPath": "/home/youruser/.virtualenvs/app-FzQGSFjf/bin/python",
+    "python.analysis.extraPaths": [
+        "mvm",
+        "mvmlib/src",
+    ],
+    "python.testing.pytestArgs": [
+        "mvmlib"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+}

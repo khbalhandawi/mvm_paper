@@ -1,0 +1,6 @@
+matplotlib==3.4.3
+pyDOE==0.3.8
+scikit-fuzzy==0.4.2
+ipykernel==6.4.1
+smt==1.1.0
+multiprocess==0.70.12.2

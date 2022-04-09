@@ -1,0 +1,1 @@
+echo %GITDIR%\mvm_paper\mvmlib\src > .env\Lib\site-packages\mvmlib.pth

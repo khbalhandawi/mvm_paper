@@ -127,3 +127,27 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#MACOS
+.DS_Store
+
+# image files
+images
+
+#pycharm
+.idea
+
+# binary files
+*.pkl
+
+# NX intermediate files
+CAD/*.dat
+CAD/*.diag
+CAD/*.f04
+CAD/*.f06
+CAD/*.op2
+CAD/*.vtk
+CAD/Nastran_output/
+
+# symlinks
+mvm
