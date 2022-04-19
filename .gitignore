@@ -140,6 +140,9 @@ images
 # binary files
 *.pkl
 
+# data files
+*.csv
+
 # NX intermediate files
 CAD/*.dat
 CAD/*.diag
@@ -147,6 +150,7 @@ CAD/*.f04
 CAD/*.f06
 CAD/*.op2
 CAD/*.vtk
+CAD/*.asg
 CAD/Nastran_output/
 
 # symlinks

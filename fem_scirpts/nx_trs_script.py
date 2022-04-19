@@ -6,7 +6,9 @@ import NXOpen
 import NXOpen.CAE
 import NXOpen.Preferences
 import os, sys
+
 from .export_to_vtk import export_to_vtk_filename
+
 from cpylog import get_logger
 import time
 
@@ -52,6 +54,7 @@ def post_processing(base_sim_name):
     op2_filename = os.path.join(path,'CAD',base_sim_name+'.op2')
     bdf_filename = os.path.join(path,'CAD',base_sim_name+'.dat')
     vtk_filename = os.path.join(path,'CAD',base_sim_name+'.vtk')
+
     export_to_vtk_filename(bdf_filename,op2_filename,vtk_filename,log=logger)
 
     return vtk_filename
@@ -304,9 +307,19 @@ def run_nx_simulation(vane_length,vane_height,lean_angle,n_struts,
     ######################################################
     #                    Execute jobs                    #
     ######################################################
+    run_successful = False
 
     numsolutionssolved1, numsolutionsfailed1, numsolutionsskipped1 = theSimSolveManager.SolveChainOfSolutions(psolutions1, NXOpen.CAE.SimSolution.SolveOption.Solve, NXOpen.CAE.SimSolution.SetupCheckOption.CompleteCheckAndOutputErrors, NXOpen.CAE.SimSolution.SolveMode.Foreground)
     # time.sleep(1.0)
+
+    n_attempts = 5
+    for n in range(n_attempts):
+        if not os.path.exists(results_path_2):
+            numsolutionssolved1, numsolutionsfailed1, numsolutionsskipped1 = theSimSolveManager.SolveChainOfSolutions(psolutions1, NXOpen.CAE.SimSolution.SolveOption.Solve, NXOpen.CAE.SimSolution.SetupCheckOption.CompleteCheckAndOutputErrors, NXOpen.CAE.SimSolution.SolveMode.Foreground)
+        else:
+            run_successful = True
+            break
+
     # ----------------------------------------------
     #   Menu: File->Close->All Parts
     # ----------------------------------------------
@@ -315,21 +328,54 @@ def run_nx_simulation(vane_length,vane_height,lean_angle,n_struts,
     workSimPart = NXOpen.BasePart.Null
     displaySimPart = NXOpen.BasePart.Null
     theSession.ApplicationSwitchImmediate("UG_APP_NOPART")
-
+    
     # ----------------------------------------------
     #   POST-PROCESSING
     # ----------------------------------------------
-    # vtk_filename_1 = post_processing(results_file_1)
+    if run_successful:
+        # vtk_filename_1 = post_processing(results_file_1)
+        vtk_filename_2 = post_processing(results_file_2)
+    else:
+        # vtk_filename_1 = None
+        vtk_filename_2 = None
 
-    vtk_filename_2 = post_processing(results_file_2)
-
-    return None, vtk_filename_2
+    return None, vtk_filename_2, run_successful
 
 if __name__ == '__main__':
 
+    from export_to_vtk import export_to_vtk_filename
+    from plot_results import plotmesh, plotresults,postprocess_vtk
+
+
+    n_struts            = 5
     vane_length         = 120
     vane_height         = 20
     lean_angle          = 20
-    n_struts            = 15
-    
-    run_nx_simulation(vane_length,vane_height,lean_angle,n_struts)
+    bearing_x           = 50
+    bearing_y           = 50
+
+    n_struts            = 9.0
+    vane_length         = 23.384918013185924
+    vane_height         = 7.11823399887898
+    lean_angle          = 27.61749330865683
+    bearing_x           = 176.54130348897905
+    bearing_y           = 176.89984971500544
+
+    _, vtk_filename, success = run_nx_simulation(vane_length=vane_length,vane_height=vane_height,
+        lean_angle=lean_angle,n_struts=n_struts,r_hub=346.5,r_shroud=536.5,yield_strength=460,
+        youngs_modulus=156.3e3,poissons_ratio=0.33,material_density=8.19e-06,bearing_x=bearing_x,
+        bearing_y=bearing_y,mesh_size=10,pid=None)
+
+    base_path = os.getcwd() # Working directory
+    folder = 'Nastran_output'
+    output_path = os.path.join(base_path, 'CAD', folder)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    if success:
+        plotmesh(vtk_filename,output_path)
+        plotresults(1,vtk_filename,'POINT',output_path)
+        plotresults(1,vtk_filename,'CELL',output_path)
+
+        stress = postprocess_vtk(1,vtk_filename,'CELL')
+        print(stress)

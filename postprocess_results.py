@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import seaborn as sns
 
 from mvm import Design
 from mvm import FixedParam, DesignParam, InputSpec, Behaviour, Performance, MarginNode, MarginNetwork, Decision
 from mvm import GaussianFunc, UniformFunc
-from mvm import nearest
 
 # define fixed parameters
 i1 = FixedParam(7.17E-06, 'I1', description='Coefficient of thermal expansion', symbol='alpha')
@@ -21,8 +21,8 @@ i6 = FixedParam(25.0, 'I6', description='ambient temperature', symbol='Ts')
 fixed_params = [i1, i2, i3, i4, i5, i6]
 
 # define design parameters
-d1 = DesignParam(15.0, 'D1', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
-d2 = DesignParam(10.0, 'D2', universe=[0.0, 30.0], variable_type='FLOAT', description='lean angle', symbol='theta')
+d1 = DesignParam(15.0, 'D2', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
+d2 = DesignParam(10.0, 'D3', universe=[0.0, 30.0], variable_type='FLOAT', description='lean angle', symbol='theta')
 design_params = [d1, d2]
 
 # # T1,T2 distribution (Gaussian)
@@ -41,10 +41,10 @@ Requirement = UniformFunc(center, Range, 'temp')
 # define input specifications
 s1 = InputSpec(center[0], 'S1', universe=[325, 550], variable_type='FLOAT', cov_index=0,
                description='nacelle temperature', distribution=Requirement,
-               symbol='T1', inc=-1e-2, inc_type='rel')
+               symbol='T1', inc=-1e-1, inc_type='rel')
 s2 = InputSpec(center[1], 'S2', universe=[325, 550], variable_type='FLOAT', cov_index=1,
                description='gas surface temperature', distribution=Requirement,
-               symbol='T2', inc=+1e-2, inc_type='rel')
+               symbol='T2', inc=+1e-1, inc_type='rel')
 input_specs = [s1, s2]
 
 
@@ -125,7 +125,7 @@ class B4(Behaviour):
 
 
 # this is the weight model
-class B5(Behaviour):
+class B6(Behaviour):
     def __call__(self, rho, cost_coeff, w, h, theta, r1, r2):
         
         length = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
@@ -139,7 +139,7 @@ b1 = B1(n_i=0, n_p=0, n_dv=0, n_tt=1, key='B1')
 b2 = B2(n_i=0, n_p=2, n_dv=1, n_tt=0, key='B2')
 b3 = B3(n_i=0, n_p=0, n_dv=0, n_tt=1, key='B3')
 b4 = B4(n_i=2, n_p=0, n_dv=1, n_tt=0, key='B4')
-b5 = B5(n_i=0, n_p=2, n_dv=0, n_tt=0, key='B5')
+b6 = B6(n_i=0, n_p=2, n_dv=0, n_tt=0, key='B6')
 
 
 # Define decision nodes and a model to convert to decided values
@@ -152,7 +152,7 @@ decision_2 = Decision(universe=list(range(15)), variable_type='ENUM', key='decis
                     description='The type of material')
 
 decisions = [decision_1, decision_2]
-behaviours = [b1, b2, b3, b4, b5]
+behaviours = [b1, b2, b3, b4, b6]
 
 # Define margin nodes
 e1 = MarginNode('E1', direction='must_not_exceed')
@@ -191,7 +191,7 @@ class MAN(MarginNetwork):
         b2 = self.behaviours[1]  # calculates buckling load
         b3 = self.behaviours[2]  # calculates bending and axial stresses
         b4 = self.behaviours[3]  # convert material index to yield stress, density, and cost
-        b5 = self.behaviours[4]  # calculates weight and cost
+        b6 = self.behaviours[4]  # calculates weight and cost
 
         decision_1 = self.decisions[0]  # select the width of the vane based on the maximum supported buckling load
         decision_2 = self.decisions[1]  # select the number of struts based on center displacement and max stress
@@ -231,136 +231,68 @@ class MAN(MarginNetwork):
 
         # Compute performances
         # rho, cost_coeff, w, h, theta, r1, r2
-        b5(b4.intermediate[0], b4.intermediate[1], b2.inverted, d1.value, d2.value, i3.value, i4.value)
-        p1(b5.performance[0])
-        p2(b5.performance[1])
+        b6(b4.intermediate[0], b4.intermediate[1], b2.inverted, d1.value, d2.value, i3.value, i4.value)
+        p1(b6.performance[0])
+        p2(b6.performance[1])
 
 
 man = MAN(design_params, input_specs, fixed_params,
           behaviours, decisions, margin_nodes, performances, 'MAN_1')
 
-# train material surrogate
-variable_dict = {
-    'material' : {'type' : 'ENUM', 'limits' : decision_2.universe},
-}
-b4.train_surrogate(variable_dict,n_samples=50,sm_type='KRG')
-b4.train_inverse(sm_type='LS')
+man.load('strut_s',folder='strut')
 
-# Create surrogate model for estimating threshold performance
-man.save('strut_d',folder='strut')
+###########################################################
+# drop NaNs (infeasible input specifications)
+notnan = ~np.isnan(man.absorption_matrix.values).any(axis=(0,1))
+I = man.impact_matrix.values[:,:,notnan]
+A = man.absorption_matrix.values[:,:,notnan]
 
-man.init_decisions()
-man.forward()
+###########################################################
+# create a dataframe of impact and absorptions
+columns = ['node',] + [p.key for p in man.performances] + [s.key for s in man.input_specs]
 
-# Run a forward pass of the MAN
-man.compute_impact()
-man.compute_absorption()
+n_nodes = len(man.margin_nodes)
+n_spec = len(man.input_specs)
+n_perf = len(man.performances)
+n_samples = A.shape[2]
 
-# View value of excess
-print(man.excess_vector)
+all_matrix = np.empty((0,1))
+for i in range(n_nodes):
+    all_matrix = np.vstack((all_matrix,(i+1)*np.ones((n_samples,1))))
 
-# View Impact on Performance
-print(man.impact_matrix.value)
+for i in range(n_perf):
+    col = I[:,i,:].reshape(-1,1)
+    all_matrix = np.hstack((all_matrix,col))
 
-# View Deterioration
-print(man.deterioration_vector.value)
+for i in range(n_spec):
+    col = A[:,i,:].reshape(-1,1)
+    all_matrix = np.hstack((all_matrix,col))
 
-# View Absorption capability
-print(man.absorption_matrix.value)
+df_matrix = pd.DataFrame(all_matrix, columns=columns)
+df_matrix = df_matrix.astype({'node':'int'})
 
-# display the margin value plot
-d = man.compute_mvp('scatter', show_neutral=True)
+sns.pairplot(df_matrix, hue="node")
+df_matrix.to_csv(os.path.join('strut','df_matrix.csv'))
 
-# Effect of alternative designs
-n_designs = 100
-lb = np.array(man.universe_d)[:, 0]
-ub = np.array(man.universe_d)[:, 1]
-design_doe = Design(lb, ub, n_designs, 'LHS')
+###########################################################
+# create a dataframe of average impact and absorption
+columns = ['node','Impact','Absorption']
 
-# create empty figure
-fig, ax = plt.subplots(figsize=(7, 8))
-ax.set_xlabel('Impact on performance')
-ax.set_ylabel('Change absorption capability')
+# Extract x and y
+x = np.nanmean(I,axis=1).ravel().reshape(-1,1) # average along performance parameters (assumes equal weighting)
+y = np.nanmean(A,axis=1).ravel().reshape(-1,1) # average along input specs (assumes equal weighting)
 
-X = np.empty((0, len(man.margin_nodes)))
-Y = np.empty((0, len(man.margin_nodes)))
-for i, design in enumerate(design_doe.unscale()):
-    man.nominal_design_vector = design
-    man.reset()
-    man.reset_outputs()
+mean_matrix = np.empty((0,1))
+for i in range(n_nodes):
+    mean_matrix = np.vstack((mean_matrix,(i+1)*np.ones((n_samples,1))))
 
-    # Display progress bar
-    sys.stdout.write("Progress: %d%%   \r" % ((i / n_designs) * 100))
-    sys.stdout.flush()
+mean_matrix = np.hstack((mean_matrix,x))
+mean_matrix = np.hstack((mean_matrix,y))
 
-    # Perform MAN computations
-    man.init_decisions()
-    man.forward()
-    man.compute_impact()
-    man.compute_absorption()
+df_mean = pd.DataFrame(mean_matrix, columns=columns)
+df_mean = df_mean.astype({'node':'int'})
 
-    # Extract x and y
-    x = np.mean(man.impact_matrix.values,
-                axis=(1, 2)).ravel()  # average along performance parameters (assumes equal weighting)
-    y = np.mean(man.absorption_matrix.values,
-                axis=(1, 2)).ravel()  # average along input specs (assumes equal weighting)
+sns.jointplot(data=df_mean, x="Absorption", 
+    y="Impact", hue="node")
 
-    if not all(np.isnan(y)):
-        X = np.vstack((X, x))
-        Y = np.vstack((Y, y))
-
-    # plot the results
-    color = np.random.random((1, 3))
-    ax.scatter(x, y, c=color)
-
-plt.show()
-
-# Calculate distance metric
-p1 = np.array([X.min(), Y.min()])
-p2 = np.array([X.max(), Y.max()])
-p1 = p1 - 0.1 * abs(p2 - p1)
-p2 = p2 + 0.1 * abs(p2 - p1)
-
-distances = np.empty(0)
-for i, (x, y) in enumerate(zip(X, Y)):
-
-    dist = 0
-    for node in range(len(x)):
-        s = np.array([x[node], y[node]])
-        pn, d = nearest(p1, p2, s)
-        dist += d
-
-    distances = np.append(distances, dist)
-
-# display distances only for three designs
-X_plot = X[0:3, :]
-Y_plot = Y[0:3, :]
-
-# create empty figure
-colors = ['#FF0000', '#27BE1E', '#0000FF']
-fig, ax = plt.subplots(figsize=(7, 8))
-ax.set_xlabel('Impact on performance')
-ax.set_ylabel('Change absoption capability')
-ax.set_xlim(p1[0], p2[0])
-ax.set_ylim(p1[1], p2[1])
-
-p = ax.plot([0, 1], [0, 1], transform=ax.transAxes, color='k', linestyle=(5, (10, 5)))
-
-distances = np.empty(0)
-for i, (x, y) in enumerate(zip(X_plot, Y_plot)):
-
-    ax.scatter(x, y, c=colors[i])
-
-    dist = 0
-    for node in range(len(x)):
-        s = np.array([x[node], y[node]])
-        pn, d = nearest(p1, p2, s)
-        dist += d
-
-        x_d = [s[0], pn[0]]
-        y_d = [s[1], pn[1]]
-        ax.plot(x_d, y_d, marker='.', linestyle='--', color=colors[i])
-
-    distances = np.append(distances, dist)
-
-plt.show()
+df_mean.to_csv(os.path.join('strut','df_mean.csv'))
