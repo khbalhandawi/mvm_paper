@@ -8,10 +8,8 @@ import pandas as pd
 from mvm import Design
 from mvm import FixedParam, DesignParam, InputSpec, Behaviour, Performance, MarginNode, MarginNetwork, Decision
 from mvm import GaussianFunc, UniformFunc
-
-# folder = os.path.join('data','strut','C1'); lean = 0.0
-folder = os.path.join('data','strut','C2'); lean = 10.0
-# folder = os.path.join('data','strut','C3'); lean = 30.0
+from mvm import nearest
+from mvm.utilities import check_folder
 
 # define fixed parameters
 i1 = FixedParam(7.17E-06, 'I1', description='Coefficient of thermal expansion', symbol='alpha')
@@ -24,8 +22,8 @@ i6 = FixedParam(25.0, 'I6', description='ambient temperature', symbol='Ts')
 fixed_params = [i1, i2, i3, i4, i5, i6]
 
 # define design parameters
-d1 = DesignParam(15.0, 'D2', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
-d2 = DesignParam(lean, 'D3', universe=[0.0, 30.0], variable_type='FLOAT', description='lean angle', symbol='theta')
+d1 = DesignParam(15.0, 'D1', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
+d2 = DesignParam(10.0, 'D2', universe=[0.0, 30.0], variable_type='FLOAT', description='lean angle', symbol='theta')
 design_params = [d1, d2]
 
 # # T1,T2 distribution (Gaussian)
@@ -44,10 +42,10 @@ Requirement = UniformFunc(center, Range, 'temp')
 # define input specifications
 s1 = InputSpec(center[0], 'S1', universe=[325, 550], variable_type='FLOAT', cov_index=0,
                description='nacelle temperature', distribution=Requirement,
-               symbol='T1', inc=-1e-1, inc_type='rel')
+               symbol='T1', inc=-1e-2, inc_type='rel')
 s2 = InputSpec(center[1], 'S2', universe=[325, 550], variable_type='FLOAT', cov_index=1,
                description='gas surface temperature', distribution=Requirement,
-               symbol='T2', inc=+1e-1, inc_type='rel')
+               symbol='T2', inc=+1e-2, inc_type='rel')
 input_specs = [s1, s2]
 
 
@@ -57,7 +55,7 @@ class B1(Behaviour):
     def __call__(self, T1, T2, h, theta, alpha, E, r1, r2, Ts):
         coeffs = [0.95, 1.05, 0.97]
         coeffs = 3 * [1.0, ]
-        w_nominal = 100.0
+        w_nominal = 60.0
 
         length = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
 
@@ -102,28 +100,29 @@ class B4(Behaviour):
     def __call__(self, material):
 
         material_dict = {
-            'Inconel'   : {
+            'dummy'   : {
                 'sigma_y' : 92, # MPa
                 'rho' : 11.95e-06, # kg/mm3
-                'cost' : 0.1 # USD/kg
+                'cost' : -0.18, # USD/kg
+                'ED_mat' : 94.6
+                },
+            'Inconel'  : {
+                'sigma_y' : 460,  # MPa
+                'rho' : 8.19e-06,  # kg/mm3
+                'cost' : 0.46,  # USD/kg
+                'ED_mat' : 144.8
                 },
             'Titanium'  : {
                 'sigma_y' : 828, # MPa
                 'rho' : 4.43e-06, # kg/mm3
-                'cost' : 1.10 # USD/kg
+                'cost' : 1.10, # USD/kg
+                'ED_mat' : 195
                 },
         }
 
-        # generate 10 materials by linearly interpolating
-        df = pd.DataFrame(columns=material_dict['Inconel'].keys(), index=range(15), dtype=float)
-        df.iloc[0] = material_dict['Inconel']
-        df.iloc[-1] = material_dict['Titanium']
-        df.interpolate(method='linear',axis=0,inplace=True)
-        material_dict_interp = df.transpose().to_dict()
+        chosen_mat = material_dict[material]
 
-        chosen_mat = material_dict_interp[material]
-
-        self.intermediate = [chosen_mat['rho'], chosen_mat['cost']]
+        self.intermediate = [chosen_mat['rho'], chosen_mat['cost'], chosen_mat['ED_mat']]
         self.decided_value = chosen_mat['sigma_y']
 
 
@@ -137,12 +136,51 @@ class B5(Behaviour):
         cost = weight * cost_coeff
         self.performance = [weight, cost]
 
+# this is the manufacturability model
+class B6(Behaviour):
+    def __call__(self, rho, ED_mat, w, h, theta, r1, r2):
+        
+        # fixed parameters
+        N_L	                = 383.7588405
+        Lt	                = 0.5
+        a	                = 0.000556
+        C_mach	            = 40
+        C_inert	            = 5
+        G_cons	            = 100
+        C_energy	        = 30
+        P_cons	            = 10
+        V_cham	            = 26600000
+        P_m	                = 30
+        hatch	            = 0.1
+        beta	            = 0.18
+        Laser_P	            = 155
+        alpha	            = 5
+        Laser_S	            = 300
+        E_D	                = 5.093819785
+
+        # calculations
+        L                   = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
+        A_tot	            = 2*((w*h)+(L*h)+(L*w))
+        A_s	                = 2*L*(h+w)
+        V_tot	            = w*h*L
+        W_mat	            = rho*w*h*L
+        AM_Build_Time	    = N_L*(A_tot+A_s)*a
+        K_u	                = V_tot/V_cham
+        C_exec	            = AM_Build_Time*(C_mach+(C_inert*G_cons)+(C_energy*P_cons*K_u))
+        C_mat	            = W_mat*P_m
+        C_manufacturing	    = C_exec+C_mat
+        K	                = E_D/ED_mat
+        Manufacturability	= C_manufacturing*K
+
+        self.performance = Manufacturability
+
 
 b1 = B1(n_i=0, n_p=0, n_dv=0, n_tt=1, key='B1')
 b2 = B2(n_i=0, n_p=2, n_dv=1, n_tt=0, key='B2')
 b3 = B3(n_i=0, n_p=0, n_dv=0, n_tt=1, key='B3')
-b4 = B4(n_i=2, n_p=0, n_dv=1, n_tt=0, key='B4')
+b4 = B4(n_i=3, n_p=0, n_dv=1, n_tt=0, key='B4')
 b5 = B5(n_i=0, n_p=2, n_dv=0, n_tt=0, key='B5')
+b6 = B6(n_i=0, n_p=1, n_dv=0, n_tt=0, key='B6')
 
 
 # Define decision nodes and a model to convert to decided values
@@ -150,12 +188,12 @@ decision_1 = Decision(universe=list(range(60,120+5,10)), variable_type='ENUM', k
                     direction='must_not_exceed', decided_value_model=b2, n_nodes=1,
                     description='the vane width selection')
 
-decision_2 = Decision(universe=list(range(15)), variable_type='ENUM', key='decision_2',
+decision_2 = Decision(universe=['dummy', 'Inconel', 'Titanium'], variable_type='ENUM', key='decision_2',
                     direction='must_not_exceed', decided_value_model=b4, n_nodes=1, 
                     description='The type of material')
 
 decisions = [decision_1, decision_2]
-behaviours = [b1, b2, b3, b4, b5]
+behaviours = [b1, b2, b3, b4, b5, b6]
 
 # Define margin nodes
 e1 = MarginNode('E1', direction='must_not_exceed')
@@ -165,7 +203,8 @@ margin_nodes = [e1, e2]
 # Define performances
 p1 = Performance('P1', direction='less_is_better')
 p2 = Performance('P2', direction='less_is_better')
-performances = [p1, p2]
+p3 = Performance('P3', direction='less_is_better')
+performances = [p1, p2, p3]
 
 # Define the MAN
 class MAN(MarginNetwork):
@@ -195,6 +234,7 @@ class MAN(MarginNetwork):
         b3 = self.behaviours[2]  # calculates bending and axial stresses
         b4 = self.behaviours[3]  # convert material index to yield stress, density, and cost
         b5 = self.behaviours[4]  # calculates weight and cost
+        b6 = self.behaviours[5]  # calculates manufacturability
 
         decision_1 = self.decisions[0]  # select the width of the vane based on the maximum supported buckling load
         decision_2 = self.decisions[1]  # select the number of struts based on center displacement and max stress
@@ -204,6 +244,7 @@ class MAN(MarginNetwork):
 
         p1 = self.performances[0]  # weight
         p2 = self.performances[1]  # cost
+        p3 = self.performances[2]  # manufacturability
 
         # Execute behaviour models
         # T1, T2, h, theta, alpha, E, r1, r2, Ts
@@ -225,7 +266,7 @@ class MAN(MarginNetwork):
         b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
         # Execute decision node for material and translate to yield stress: material
         decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
-        # invert decided value: decided_value, h, theta, E, r1, r2, K
+        # invert decided value: sigma_y
         b4.inv_call(decision_2.output_value)
 
         # Compute excesses
@@ -235,8 +276,12 @@ class MAN(MarginNetwork):
         # Compute performances
         # rho, cost_coeff, w, h, theta, r1, r2
         b5(b4.intermediate[0], b4.intermediate[1], b2.inverted, d1.value, d2.value, i3.value, i4.value)
+        # rho, ED_mat, w, h, theta, r1, r2
+        b6(b4.intermediate[0], b4.intermediate[2], b2.inverted, d1.value, d2.value, i3.value, i4.value)
+
         p1(b5.performance[0])
         p2(b5.performance[1])
+        p3(b6.performance)
 
 
 man = MAN(design_params, input_specs, fixed_params,
@@ -250,63 +295,121 @@ b4.train_surrogate(variable_dict,n_samples=50,sm_type='KRG')
 b4.train_inverse(sm_type='LS')
 
 # Create surrogate model for estimating threshold performance
-man.save('strut_s',folder=folder)
+check_folder('strut_manufacturability')
+man.save('strut_d',folder='strut_manufacturability')
 
 man.init_decisions()
 man.forward()
 
-# Perform Monte-Carlo simulation
-n_epochs = 1000
-for n in range(n_epochs):
-    sys.stdout.write("Progress: %d%%   \r" % ((n / n_epochs) * 100))
+# Run a forward pass of the MAN
+man.compute_impact()
+man.compute_absorption()
+
+# View value of excess
+print(man.excess_vector)
+
+# View Impact on Performance
+print(man.impact_matrix.value)
+
+# View Deterioration
+print(man.deterioration_vector.value)
+
+# View Absorption capability
+print(man.absorption_matrix.value)
+
+# display the margin value plot
+d = man.compute_mvp('scatter', show_neutral=True)
+
+# Effect of alternative designs
+n_designs = 100
+lb = np.array(man.universe_d)[:, 0]
+ub = np.array(man.universe_d)[:, 1]
+design_doe = Design(lb, ub, n_designs, 'LHS')
+
+# create empty figure
+fig, ax = plt.subplots(figsize=(7, 8))
+ax.set_xlabel('Impact on performance')
+ax.set_ylabel('Change absorption capability')
+
+X = np.empty((0, len(man.margin_nodes)))
+Y = np.empty((0, len(man.margin_nodes)))
+for i, design in enumerate(design_doe.unscale()):
+    man.nominal_design_vector = design
+    man.reset()
+    man.reset_outputs()
+
+    # Display progress bar
+    sys.stdout.write("Progress: %d%%   \r" % ((i / n_designs) * 100))
     sys.stdout.flush()
 
-    man.randomize()
+    # Perform MAN computations
     man.init_decisions()
     man.forward()
     man.compute_impact()
     man.compute_absorption()
 
-man.save('strut_s',folder=folder)
+    # Extract x and y
+    x = np.mean(man.impact_matrix.values,
+                axis=(1, 2)).ravel()  # average along performance parameters (assumes equal weighting)
+    y = np.mean(man.absorption_matrix.values,
+                axis=(1, 2)).ravel()  # average along input specs (assumes equal weighting)
 
-# # load the MAN
-# man.load('strut_s',folder=folder)
+    if not all(np.isnan(y)):
+        X = np.vstack((X, x))
+        Y = np.vstack((Y, y))
 
-# View distribution of excess
-man.margin_nodes[0].excess.view(xlabel='E1')
-man.margin_nodes[1].excess.view(xlabel='E2')
-
-# View distribution of Impact on Performance
-man.impact_matrix.view(0, 0, xlabel='E1,P1')
-man.impact_matrix.view(1, 0, xlabel='E2,P1')
-
-man.deterioration_vector.view(0, xlabel='S1')
-man.deterioration_vector.view(1, xlabel='S2')
-
-man.absorption_matrix.view(0, 0, xlabel='E1,S1')
-man.absorption_matrix.view(1, 0, xlabel='E2,S1')
-
-man.absorption_matrix.view(0, 1, xlabel='E1,S2')
-man.absorption_matrix.view(1, 1, xlabel='E2,S2')
-
-impact_matrix = np.nanmean(man.impact_matrix.values,axis=(2,))  # average along performance parameters (assumes equal weighting)
-absorption_matrix = np.nanmean(man.absorption_matrix.values,axis=(2,))  # average along input specs (assumes equal weighting)
-
-rows = ['E%i'%i for i in range(absorption_matrix.shape[0])]
-cols = ['S%i'%i for i in range(absorption_matrix.shape[1])]
-plt.imshow(absorption_matrix, cmap='hot', interpolation='nearest')
-plt.xticks(range(0, absorption_matrix.shape[1]),cols)
-plt.yticks(range(0, absorption_matrix.shape[0]),rows)
+    # plot the results
+    color = np.random.random((1, 3))
+    ax.scatter(x, y, c=color)
 
 plt.show()
 
-rows = ['E%i'%i for i in range(impact_matrix.shape[0])]
-cols = ['S%i'%i for i in range(impact_matrix.shape[1])]
-plt.imshow(impact_matrix, cmap='hot', interpolation='nearest')
-plt.xticks(range(0, impact_matrix.shape[1]),cols)
-plt.yticks(range(0, impact_matrix.shape[0]),rows)
+# Calculate distance metric
+p1 = np.array([X.min(), Y.min()])
+p2 = np.array([X.max(), Y.max()])
+p1 = p1 - 0.1 * abs(p2 - p1)
+p2 = p2 + 0.1 * abs(p2 - p1)
+
+distances = np.empty(0)
+for i, (x, y) in enumerate(zip(X, Y)):
+
+    dist = 0
+    for node in range(len(x)):
+        s = np.array([x[node], y[node]])
+        pn, d = nearest(p1, p2, s)
+        dist += d
+
+    distances = np.append(distances, dist)
+
+# display distances only for three designs
+X_plot = X[0:3, :]
+Y_plot = Y[0:3, :]
+
+# create empty figure
+colors = ['#FF0000', '#27BE1E', '#0000FF']
+fig, ax = plt.subplots(figsize=(7, 8))
+ax.set_xlabel('Impact on performance')
+ax.set_ylabel('Change absoption capability')
+ax.set_xlim(p1[0], p2[0])
+ax.set_ylim(p1[1], p2[1])
+
+p = ax.plot([0, 1], [0, 1], transform=ax.transAxes, color='k', linestyle=(5, (10, 5)))
+
+distances = np.empty(0)
+for i, (x, y) in enumerate(zip(X_plot, Y_plot)):
+
+    ax.scatter(x, y, c=colors[i])
+
+    dist = 0
+    for node in range(len(x)):
+        s = np.array([x[node], y[node]])
+        pn, d = nearest(p1, p2, s)
+        dist += d
+
+        x_d = [s[0], pn[0]]
+        y_d = [s[1], pn[1]]
+        ax.plot(x_d, y_d, marker='.', linestyle='--', color=colors[i])
+
+    distances = np.append(distances, dist)
 
 plt.show()
-
-# display the margin value plot
-man.compute_mvp('scatter')

@@ -155,3 +155,7 @@ CAD/Nastran_output/
 
 # symlinks
 mvm
+
+# R
+.Rhistory
+.Rdata

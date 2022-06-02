@@ -7,9 +7,6 @@ import NXOpen.CAE
 import NXOpen.Preferences
 import os, sys
 
-from .export_to_vtk import export_to_vtk_filename
-
-from cpylog import get_logger
 import time
 
 # from pyNastran.op2.export_to_vtk import export_to_vtk, export_to_vtk_filename
@@ -48,6 +45,8 @@ def update_expressions(theSession,part_name,part_design):
 
 def post_processing(base_sim_name):
 
+    from cpylog import get_logger
+    from .export_to_vtk import export_to_vtk_filename
     logger = get_logger(level='error')
 
     path = os.getcwd()
@@ -309,16 +308,15 @@ def run_nx_simulation(vane_length,vane_height,lean_angle,n_struts,
     ######################################################
     run_successful = False
 
-    numsolutionssolved1, numsolutionsfailed1, numsolutionsskipped1 = theSimSolveManager.SolveChainOfSolutions(psolutions1, NXOpen.CAE.SimSolution.SolveOption.Solve, NXOpen.CAE.SimSolution.SetupCheckOption.CompleteCheckAndOutputErrors, NXOpen.CAE.SimSolution.SolveMode.Foreground)
-    # time.sleep(1.0)
+    try:
+        numsolutionssolved1, numsolutionsfailed1, numsolutionsskipped1 = theSimSolveManager.SolveChainOfSolutions(psolutions1, NXOpen.CAE.SimSolution.SolveOption.Solve, NXOpen.CAE.SimSolution.SetupCheckOption.CompleteCheckAndOutputErrors, NXOpen.CAE.SimSolution.SolveMode.Foreground)
+        time.sleep(1.0)
+        nx_exception = False
+    except NXOpen.NXException:
+        nx_exception = True
 
-    n_attempts = 5
-    for n in range(n_attempts):
-        if not os.path.exists(results_path_2):
-            numsolutionssolved1, numsolutionsfailed1, numsolutionsskipped1 = theSimSolveManager.SolveChainOfSolutions(psolutions1, NXOpen.CAE.SimSolution.SolveOption.Solve, NXOpen.CAE.SimSolution.SetupCheckOption.CompleteCheckAndOutputErrors, NXOpen.CAE.SimSolution.SolveMode.Foreground)
-        else:
-            run_successful = True
-            break
+    if os.path.exists(results_path_2) and not nx_exception:
+        run_successful = True
 
     # ----------------------------------------------
     #   Menu: File->Close->All Parts
@@ -343,10 +341,6 @@ def run_nx_simulation(vane_length,vane_height,lean_angle,n_struts,
 
 if __name__ == '__main__':
 
-    from export_to_vtk import export_to_vtk_filename
-    from plot_results import plotmesh, plotresults,postprocess_vtk
-
-
     n_struts            = 5
     vane_length         = 120
     vane_height         = 20
@@ -361,6 +355,13 @@ if __name__ == '__main__':
     bearing_x           = 176.54130348897905
     bearing_y           = 176.89984971500544
 
+    vane_length = 80.23418632896156
+    vane_height = 13.129238383885887
+    lean_angle = 33.012277168282715
+    n_struts = 19.0
+    bearing_x = 115.32711545052709
+    bearing_y = 113.00224669379733
+
     _, vtk_filename, success = run_nx_simulation(vane_length=vane_length,vane_height=vane_height,
         lean_angle=lean_angle,n_struts=n_struts,r_hub=346.5,r_shroud=536.5,yield_strength=460,
         youngs_modulus=156.3e3,poissons_ratio=0.33,material_density=8.19e-06,bearing_x=bearing_x,
@@ -373,6 +374,9 @@ if __name__ == '__main__':
         os.makedirs(output_path)
 
     if success:
+        from export_to_vtk import export_to_vtk_filename
+        from plot_results import plotmesh, plotresults,postprocess_vtk
+
         plotmesh(vtk_filename,output_path)
         plotresults(1,vtk_filename,'POINT',output_path)
         plotresults(1,vtk_filename,'CELL',output_path)
