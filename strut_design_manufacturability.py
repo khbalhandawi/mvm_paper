@@ -104,19 +104,28 @@ class B4(Behaviour):
                 'sigma_y' : 92, # MPa
                 'rho' : 11.95e-06, # kg/mm3
                 'cost' : -0.18, # USD/kg
-                'ED_mat' : 94.6
+                'ED_mat' : 94.6,
+                'C_ps' : 0.4248,
+                'T_melt' : 1671, # K
+                'C_pl' : 0.633
                 },
             'Inconel'  : {
                 'sigma_y' : 460,  # MPa
                 'rho' : 8.19e-06,  # kg/mm3
                 'cost' : 0.46,  # USD/kg
-                'ED_mat' : 144.8
+                'ED_mat' : 144.8,
+                'C_ps' : 0.4889,
+                'T_melt' : 1806, # K
+                'C_pl' : 0.6915
                 },
             'Titanium'  : {
                 'sigma_y' : 828, # MPa
                 'rho' : 4.43e-06, # kg/mm3
                 'cost' : 1.10, # USD/kg
-                'ED_mat' : 195
+                'ED_mat' : 195,
+                'C_ps' : 0.553,
+                'T_melt' : 1941, # K
+                'C_pl' : 0.75
                 },
         }
 
@@ -136,7 +145,7 @@ class B5(Behaviour):
         cost = weight * cost_coeff
         self.performance = [weight, cost]
 
-# this is the manufacturability model
+# this is the AM manufacturability model
 class B6(Behaviour):
     def __call__(self, rho, ED_mat, w, h, theta, r1, r2):
         
@@ -182,7 +191,6 @@ b4 = B4(n_i=3, n_p=0, n_dv=1, n_tt=0, key='B4')
 b5 = B5(n_i=0, n_p=2, n_dv=0, n_tt=0, key='B5')
 b6 = B6(n_i=0, n_p=1, n_dv=0, n_tt=0, key='B6')
 
-
 # Define decision nodes and a model to convert to decided values
 decision_1 = Decision(universe=list(range(60,120+5,10)), variable_type='ENUM', key='decision_1',
                     direction='must_not_exceed', decided_value_model=b2, n_nodes=1,
@@ -192,22 +200,19 @@ decision_2 = Decision(universe=['dummy', 'Inconel', 'Titanium'], variable_type='
                     direction='must_not_exceed', decided_value_model=b4, n_nodes=1, 
                     description='The type of material')
 
-decisions = [decision_1, decision_2]
-behaviours = [b1, b2, b3, b4, b5, b6]
-
 # Define margin nodes
 e1 = MarginNode('E1', direction='must_not_exceed')
 e2 = MarginNode('E2', direction='must_not_exceed')
-margin_nodes = [e1, e2]
+
 
 # Define performances
 p1 = Performance('P1', direction='less_is_better')
 p2 = Performance('P2', direction='less_is_better')
 p3 = Performance('P3', direction='less_is_better')
-performances = [p1, p2, p3]
+
 
 # Define the MAN
-class MAN(MarginNetwork):
+class MAN_AM(MarginNetwork):
 
     def randomize(self):
         Requirement.random()
@@ -284,7 +289,12 @@ class MAN(MarginNetwork):
         p3(b6.performance)
 
 
-man = MAN(design_params, input_specs, fixed_params,
+decisions = [decision_1, decision_2]
+behaviours = [b1, b2, b3, b4, b5, b6]
+margin_nodes = [e1, e2]
+performances = [p1, p2, p3]
+
+man_AM = MAN_AM(design_params, input_specs, fixed_params,
           behaviours, decisions, margin_nodes, performances, 'MAN_1')
 
 # train material surrogate
@@ -296,120 +306,223 @@ b4.train_inverse(sm_type='LS')
 
 # Create surrogate model for estimating threshold performance
 check_folder('strut_manufacturability')
-man.save('strut_d',folder='strut_manufacturability')
+man_AM.save('strut_AM',folder='strut_manufacturability')
 
-man.init_decisions()
-man.forward()
+man_AM.init_decisions()
+man_AM.forward()
 
 # Run a forward pass of the MAN
-man.compute_impact()
-man.compute_absorption()
-
-# View value of excess
-print(man.excess_vector)
+man_AM.compute_impact()
+man_AM.compute_absorption()
 
 # View Impact on Performance
-print(man.impact_matrix.value)
+impact_AM = man_AM.impact_matrix.value
 
-# View Deterioration
-print(man.deterioration_vector.value)
+man_AM.reset()
 
-# View Absorption capability
-print(man.absorption_matrix.value)
+################################################################
+# Manufacturing by casting
 
-# display the margin value plot
-d = man.compute_mvp('scatter', show_neutral=True)
 
-# Effect of alternative designs
-n_designs = 100
-lb = np.array(man.universe_d)[:, 0]
-ub = np.array(man.universe_d)[:, 1]
-design_doe = Design(lb, ub, n_designs, 'LHS')
+# this is the material model
+class B7(Behaviour):
+    def __call__(self, material):
 
-# create empty figure
-fig, ax = plt.subplots(figsize=(7, 8))
-ax.set_xlabel('Impact on performance')
-ax.set_ylabel('Change absorption capability')
+        material_dict = {
+            'dummy'   : {
+                'sigma_y' : 92, # MPa
+                'rho' : 11.95e-06, # kg/mm3
+                'cost' : -0.18, # USD/kg
+                'ED_mat' : 94.6,
+                'C_ps' : 0.4248,
+                'T_melt' : 1671, # K
+                'C_pl' : 0.633
+                },
+            'Inconel'  : {
+                'sigma_y' : 460,  # MPa
+                'rho' : 8.19e-06,  # kg/mm3
+                'cost' : 0.46,  # USD/kg
+                'ED_mat' : 144.8,
+                'C_ps' : 0.4889,
+                'T_melt' : 1806, # K
+                'C_pl' : 0.6915
+                },
+            'Titanium'  : {
+                'sigma_y' : 828, # MPa
+                'rho' : 4.43e-06, # kg/mm3
+                'cost' : 1.10, # USD/kg
+                'ED_mat' : 195,
+                'C_ps' : 0.553,
+                'T_melt' : 1941, # K
+                'C_pl' : 0.75
+                },
+        }
 
-X = np.empty((0, len(man.margin_nodes)))
-Y = np.empty((0, len(man.margin_nodes)))
-for i, design in enumerate(design_doe.unscale()):
-    man.nominal_design_vector = design
-    man.reset()
-    man.reset_outputs()
+        chosen_mat = material_dict[material]
 
-    # Display progress bar
-    sys.stdout.write("Progress: %d%%   \r" % ((i / n_designs) * 100))
-    sys.stdout.flush()
+        self.intermediate = [chosen_mat['rho'], chosen_mat['cost'], chosen_mat['C_ps'], chosen_mat['T_melt'], chosen_mat['C_pl']]
+        self.decided_value = chosen_mat['sigma_y']
 
-    # Perform MAN computations
-    man.init_decisions()
-    man.forward()
-    man.compute_impact()
-    man.compute_absorption()
 
-    # Extract x and y
-    x = np.mean(man.impact_matrix.values,
-                axis=(1, 2)).ravel()  # average along performance parameters (assumes equal weighting)
-    y = np.mean(man.absorption_matrix.values,
-                axis=(1, 2)).ravel()  # average along input specs (assumes equal weighting)
+# this is the casting manufacturability model
+class B8(Behaviour):
+    def __call__(self, rho, cost_coeff, C_ps, T_melt, C_pl, w, h, theta, r1, r2):
+        
+        # fixed parameters
+        F_Loss	        = 1.103
+        C_unit_mat	    = cost_coeff
+        F_Loss_energy	= 1.9314
+        T_room	        = 295.2
+        T_tap	        = 2088
+        C_ac	        = 80
+        C_unit_energy	= 30
+        C_s	            = 12
 
-    if not all(np.isnan(y)):
-        X = np.vstack((X, x))
-        Y = np.vstack((Y, y))
+        # calculations
+        L                   = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
+        W_mat	            = rho*w*h*L
+        C_material	        = C_unit_mat*W_mat*F_Loss
+        C_energy	        = C_unit_energy*W_mat*F_Loss_energy*(C_ps*(T_melt-T_room)+C_pl*(T_tap-T_melt))
+        V_cast 	            = w*h*L
+        C_tooling	        = np.exp((0.629*(V_cast/10E9))+(0.048*C_ac)+(0.023*C_s)+0.739)
+        Manufacturability	= C_material+C_energy+C_tooling
 
-    # plot the results
-    color = np.random.random((1, 3))
-    ax.scatter(x, y, c=color)
+        self.performance = Manufacturability
 
-plt.show()
 
-# Calculate distance metric
-p1 = np.array([X.min(), Y.min()])
-p2 = np.array([X.max(), Y.max()])
-p1 = p1 - 0.1 * abs(p2 - p1)
-p2 = p2 + 0.1 * abs(p2 - p1)
+b7 = B7(n_i=5, n_p=0, n_dv=1, n_tt=0, key='B7')
+b8 = B8(n_i=0, n_p=1, n_dv=0, n_tt=0, key='B8')
 
-distances = np.empty(0)
-for i, (x, y) in enumerate(zip(X, Y)):
+# Define the MAN
+class MAN_casting(MarginNetwork):
 
-    dist = 0
-    for node in range(len(x)):
-        s = np.array([x[node], y[node]])
-        pn, d = nearest(p1, p2, s)
-        dist += d
+    def randomize(self):
+        Requirement.random()
+        s1.random()
+        s2.random()
 
-    distances = np.append(distances, dist)
+    def forward(self, num_threads=1, recalculate_decisions=False, override_decisions=False,outputs=['dv','dv','dv']):
+        # retrieve MAN components
+        d1 = self.design_params[0]  # h
+        d2 = self.design_params[1]  # theta
 
-# display distances only for three designs
-X_plot = X[0:3, :]
-Y_plot = Y[0:3, :]
+        s1 = self.input_specs[0]  # T1 (stochastic)
+        s2 = self.input_specs[1]  # T2 (stochastic)
 
-# create empty figure
-colors = ['#FF0000', '#27BE1E', '#0000FF']
-fig, ax = plt.subplots(figsize=(7, 8))
-ax.set_xlabel('Impact on performance')
-ax.set_ylabel('Change absoption capability')
-ax.set_xlim(p1[0], p2[0])
-ax.set_ylim(p1[1], p2[1])
+        i1 = self.fixed_params[0]  # alpha
+        i2 = self.fixed_params[1]  # E
+        i3 = self.fixed_params[2]  # r1
+        i4 = self.fixed_params[3]  # r2
+        i5 = self.fixed_params[4]  # K
+        i6 = self.fixed_params[5]  # Ts
 
-p = ax.plot([0, 1], [0, 1], transform=ax.transAxes, color='k', linestyle=(5, (10, 5)))
+        b1 = self.behaviours[0]  # calculates axial force
+        b2 = self.behaviours[1]  # calculates buckling load
+        b3 = self.behaviours[2]  # calculates bending and axial stresses
+        b7 = self.behaviours[3]  # convert material index to yield stress, density, and cost
+        b5 = self.behaviours[4]  # calculates weight and cost
+        b8 = self.behaviours[5]  # calculates manufacturability
 
-distances = np.empty(0)
-for i, (x, y) in enumerate(zip(X_plot, Y_plot)):
+        decision_1 = self.decisions[0]  # select the width of the vane based on the maximum supported buckling load
+        decision_2 = self.decisions[1]  # select the number of struts based on center displacement and max stress
 
-    ax.scatter(x, y, c=colors[i])
+        e1 = self.margin_nodes[0]  # margin against buckling (F,F_buckling)
+        e2 = self.margin_nodes[1]  # margin against axial or bending failure (max(sigma_a,sigma_m),sigma_y)
 
-    dist = 0
-    for node in range(len(x)):
-        s = np.array([x[node], y[node]])
-        pn, d = nearest(p1, p2, s)
-        dist += d
+        p1 = self.performances[0]  # weight
+        p2 = self.performances[1]  # cost
+        p3 = self.performances[2]  # manufacturability
 
-        x_d = [s[0], pn[0]]
-        y_d = [s[1], pn[1]]
-        ax.plot(x_d, y_d, marker='.', linestyle='--', color=colors[i])
+        # Execute behaviour models
+        # T1, T2, h, theta, alpha, E, r1, r2, Ts
+        b1(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
+        # Execute decision node for width: w, h, theta, E, r1, r2, K
+        args = [
+            self.design_params[0].value, # h
+            self.design_params[1].value, # theta
+            self.fixed_params[1].value, # E
+            self.fixed_params[2].value, # r1
+            self.fixed_params[3].value, # r2
+            self.fixed_params[4].value, # K
+        ]
+        decision_1(b1.threshold, override_decisions, recalculate_decisions, num_threads, outputs[0],*args)
+        # invert decided value: decided_value, h, theta, E, r1, r2, K
+        b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
-    distances = np.append(distances, dist)
+        # T1, T2, h, theta, alpha, E, r1, r2, Ts)
+        b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
+        # Execute decision node for material and translate to yield stress: material
+        decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
+        # invert decided value: sigma_y
+        b7.inv_call(decision_2.output_value)
 
-plt.show()
+        # Compute excesses
+        e1(b1.threshold, decision_1.decided_value)
+        e2(b3.threshold, decision_2.decided_value)
+
+        # Compute performances
+        # rho, cost_coeff, w, h, theta, r1, r2
+        b5(b7.intermediate[0], b7.intermediate[1], b2.inverted, d1.value, d2.value, i3.value, i4.value)
+        # rho, cost_coeff, C_ps, T_melt, C_pl, w, h, theta, r1, r2)
+        b8(b7.intermediate[0], b7.intermediate[1], b7.intermediate[2], b7.intermediate[3], b7.intermediate[4], 
+            b2.inverted, d1.value, d2.value, i3.value, i4.value)
+
+        p1(b5.performance[0])
+        p2(b5.performance[1])
+        p3(b8.performance)
+
+
+decisions = [decision_1, decision_2]
+behaviours = [b1, b2, b3, b7, b5, b8]
+margin_nodes = [e1, e2]
+performances = [p1, p2, p3]
+
+man_casting = MAN_casting(design_params, input_specs, fixed_params,
+          behaviours, decisions, margin_nodes, performances, 'MAN_2')
+
+
+# train material surrogate
+variable_dict = {
+    'material' : {'type' : 'ENUM', 'limits' : decision_2.universe},
+}
+b7.train_surrogate(variable_dict,n_samples=50,sm_type='KRG')
+b7.train_inverse(sm_type='LS')
+
+# Create surrogate model for estimating threshold performance
+check_folder('strut_manufacturability')
+man_casting.save('strut_casting',folder='strut_manufacturability')
+
+man_casting.init_decisions()
+man_casting.forward()
+
+# Run a forward pass of the MAN
+man_casting.compute_impact()
+man_casting.compute_absorption()
+
+# View Impact on Performance
+impact_casting = man_casting.impact_matrix.value
+
+################################################################
+# Plot results
+
+import pandas as pd
+import numpy as np
+import altair as alt
+
+e1_values = np.hstack((impact_AM[0,:].reshape(-1,1),impact_casting[0,:].reshape(-1,1)))
+e2_values = np.hstack((impact_AM[1,:].reshape(-1,1),impact_casting[1,:].reshape(-1,1)))
+
+e1=pd.DataFrame(e1_values,index=["weight","raw mat. cost","manuf."],columns=["AM","Casting"])
+e2=pd.DataFrame(e2_values,index=["weight","raw mat. cost","manuf."],columns=["AM","Casting"])
+
+def prep_df(df, name):
+    df = df.stack().reset_index()
+    df.columns = ['facet', 'Concept', 'Impact']
+    df['Margin'] = name
+    return df
+
+df1 = prep_df(e1, 'E1')
+df2 = prep_df(e2, 'E2')
+df = pd.concat([df1, df2,])
+
+df.to_csv(os.path.join('strut_manufacturability','impact_data.csv'))

@@ -1,9 +1,9 @@
-# # Run once
+# Run once
 # library(remotes)
 # install.packages("extrafont")
 # install.packages("cairo_pdf")
 # remotes::install_version("Rttf2pt1", version = "1.3.8")
-# library(extrafont)
+library(extrafont)
 # # Install **TTF** Latin Modern Roman fonts from www.fontsquirrel.com/fonts/latin-modern-roman
 # # Import the newly installed LModern fonts, change the pattern according to the
 # # filename of the lmodern ttf files in your fonts folder
@@ -11,7 +11,7 @@
 
 # Run each time
 library(extrafont)
-loadfonts(device = "win")
+loadfonts(device = "pdf")
 
 # get default color palette
 # library(scales)
@@ -51,5 +51,5 @@ export_theme <- theme_tufte() +
     ## Strips for facet_wrap
     strip.text=element_text(size=8,family="",face="bold"),
     #strip.background=element_rect(fill="#f0f0f0")
-    strip.background=element_blank()
+    strip.background=element_blank(),
   )
