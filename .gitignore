@@ -159,3 +159,4 @@ mvm
 # R
 .Rhistory
 .Rdata
+*.html

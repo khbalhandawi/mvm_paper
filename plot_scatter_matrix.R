@@ -16,12 +16,12 @@ HOME_WD <- Sys.getenv("GITDIR")
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
 # For fea example
-data_dir <- paste0("data/strut_fea/C2/")
-img_dir <- paste0("images/strut_fea/C2/")
+data_dir <- paste0("data/strut_fea/C1/")
+img_dir <- paste0("images/strut_fea/C1/")
 
-# For simple example
-# data_dir <- paste0("data/strut/C2/")
-# img_dir <- paste0("images/strut/C2/")
+# # For simple example
+# data_dir <- paste0("data/strut/C1/")
+# img_dir <- paste0("images/strut/C1/")
 
 ## CHANGE TO MAIN WD
 setwd(main_wd)
@@ -109,5 +109,4 @@ p_pairs <- ggpairs(df_matrix, mapping = ggplot2::aes(colour=node, fill = node),
 ## 2. Export plots
 ########################################
 ggsave(paste0(main_wd,img_dir,"scatter_pairs.pdf"),
-       plot = p_pairs,
-       device = cairo_pdf, height=6, width=9)
+       plot = p_pairs, height=6, width=9)

@@ -19,23 +19,25 @@ HOME_WD <- Sys.getenv("GITDIR")
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
 # For fea example
-data_dir <- paste0("data/strut_fea_50/")
-img_dir <- paste0("images/strut_fea_50/")
+data_dir <- paste0("data/strut_fea/")
+img_dir <- paste0("images/strut_fea/")
 legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
 legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
 palette <- c("#F8766D","#00BA38","#619CFF","#000000")
-thetas = c(0.00, 20.4, 28.6)
+thetas = c(0.00, 30.0, 0.00, 30.0)
+heights = c(15.0,15.0,20.0,20.0)
 # fea limits
 x0 <- array(c(-0.009630757, 1.152203562))
 x1 <- array(c(0.3329746, 4.3151886))
 
 # # For simple example
-# data_dir <- paste0("data/strut_50/")
-# img_dir <- paste0("images/strut_50/")
+# data_dir <- paste0("data/strut/")
+# img_dir <- paste0("images/strut/")
 # legend_dist_aes <- list(linetype=c(2,2,2), shape=c(16,16,NA))
 # legend_aes <- list(linetype=c(0,0,2), shape=c(16,16,NA))
 # palette <- c("#F8766D","#00BFC4","#000000")
-# thetas = c(0.00, 10.0, 30.0)
+# thetas = c(0.00, 30.0, 0.00, 30.0)
+# heights = c(15.0,15.0,20.0,20.0)
 # # simple limits
 # x0 <- array(c(0.00, 2.5))
 # x1 <- array(c(0.075, 3.5))
@@ -44,7 +46,9 @@ x1 <- array(c(0.3329746, 4.3151886))
 setwd(main_wd)
 source(paste0(main_wd,"/plot_funcs.R"))
 
-export_theme <- export_theme + theme(plot.margin=unit(c(0,0,0,0),units="cm"), plot.tag=element_text(size=14,face="bold"))
+export_theme <- export_theme + theme(plot.margin=unit(c(0,0,0,0),units="cm"), 
+                                     plot.tag=element_text(size=14,face="bold"),
+                                     plot.tag.position = c(0.15, 0.95))
 ########################################
 ## 1. get max min limits and 45 deg line
 ########################################
@@ -67,6 +71,7 @@ scaling <- function(x, lb, ub, operation) {
 data_wd_1 <- paste0(main_wd,data_dir,"C1/")
 data_wd_2 <- paste0(main_wd,data_dir,"C2/")
 data_wd_3 <- paste0(main_wd,data_dir,"C3/")
+data_wd_4 <- paste0(main_wd,data_dir,"C4/")
 
 df_mean_1 <- read.csv(paste0(data_wd_1,"df_mean.csv"))
 df_mean_1 <- df_mean_1 %>% 
@@ -79,6 +84,11 @@ df_mean_2 <- df_mean_2 %>%
 df_mean_3 <- read.csv(paste0(data_wd_3,"df_mean.csv"))
 df_mean_3 <- df_mean_3 %>% 
   mutate(node = as.factor(node)) # convert to categorical type
+
+df_mean_4 <- read.csv(paste0(data_wd_4,"df_mean.csv"))
+df_mean_4 <- df_mean_4 %>% 
+  mutate(node = as.factor(node)) # convert to categorical type
+
 
 i_min = min(c(df_mean_1$Impact,df_mean_2$Impact,df_mean_3$Impact))
 a_min = min(c(df_mean_1$Absorption,df_mean_2$Absorption,df_mean_3$Absorption))
@@ -101,6 +111,9 @@ df_mean_2 <- df_mean_2 %>%
   mutate(Impact, Impact_n = (Impact - x0[1]) / (x1[1] - x0[1])) %>% 
   mutate(Absorption, Absorption_n = (Absorption - x0[2]) / (x1[2] - x0[2]))
 df_mean_3 <- df_mean_3 %>% 
+  mutate(Impact, Impact_n = (Impact - x0[1]) / (x1[1] - x0[1])) %>% 
+  mutate(Absorption, Absorption_n = (Absorption - x0[2]) / (x1[2] - x0[2]))
+df_mean_4 <- df_mean_4 %>% 
   mutate(Impact, Impact_n = (Impact - x0[1]) / (x1[1] - x0[1])) %>% 
   mutate(Absorption, Absorption_n = (Absorption - x0[2]) / (x1[2] - x0[2]))
 
@@ -186,7 +199,8 @@ p1 <- ggplot(df_mean_1, aes(x = Impact_n, y = Absorption_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="A")
 
 p2 <- ggplot(df_mean_2, aes(x = Impact_n, y = Absorption_n, color = node)) + 
   geom_line(data = ref_line_data, aes(x = X_n, y = neutral_n, color = "neutral line"), linetype="dashed") +
@@ -197,7 +211,8 @@ p2 <- ggplot(df_mean_2, aes(x = Impact_n, y = Absorption_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="B")
 
 p3 <- ggplot(df_mean_3, aes(x = Impact_n, y = Absorption_n, color = node)) + 
   geom_line(data = ref_line_data, aes(x = X_n, y = neutral_n, color = "neutral line"), linetype="dashed") +
@@ -209,7 +224,21 @@ p3 <- ggplot(df_mean_3, aes(x = Impact_n, y = Absorption_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="C")
+
+p4 <- ggplot(df_mean_4, aes(x = Impact_n, y = Absorption_n, color = node)) + 
+  geom_line(data = ref_line_data, aes(x = X_n, y = neutral_n, color = "neutral line"), linetype="dashed") +
+  geom_point(aes(color = node), size = 1.5) + 
+  # geom_point(shape = 1, color = "black", size = 2, stroke = 0.1, alpha = 0.1) +
+  geom_rug() + 
+  scale_y_continuous(limits=c(0,1)) +
+  scale_x_continuous(limits=c(0,1)) +
+  scale_colour_manual(values=palette) +
+  guides(colour = guide_legend(override.aes = legend_aes)) +
+  theme_pubr() +
+  export_theme +
+  labs(tag="D")
 
 p1 <- p1 + theme(legend.position = 'top')
 legend <- get_legend(p1)
@@ -218,28 +247,31 @@ legend <- get_legend(p1)
 # t,r,b,l
 p1 <- p1 + theme(legend.position = 'none',
                  axis.title.x=element_blank(),
-                 axis.title.y=element_blank(),
-                 plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.text.x=element_blank(),
+                 axis.title.y=element_blank())
 p2 <- p2 + theme(legend.position = 'none',
                  axis.title.x=element_blank(),
+                 axis.text.x=element_blank(),
                  axis.title.y=element_blank(), 
-                 axis.text.y=element_blank(),
-                 plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.text.y=element_blank())
 p3 <- p3 + theme(legend.position = 'none',
                  axis.title.x=element_blank(),
+                 axis.title.y=element_blank())
+p4 <- p4 + theme(legend.position = 'none',
+                 axis.title.x=element_blank(),
                  axis.title.y=element_blank(),
-                 axis.text.y=element_blank(),
-                 plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.text.y=element_blank())
 
 ylab <- textGrob("Change absorption capability", rot = 90, gp = gpar(fontfamily = "", size = 10, cex = 1.5))
 xlab <- textGrob("Impact on performance", gp = gpar(fontfamily = "", size = 10, cex = 1.5))
-p1_label <- textGrob(substitute(paste("(a) ",theta==th*degree), list(th=thetas[1])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
-p2_label <- textGrob(substitute(paste("(b) ",theta==th*degree), list(th=thetas[2])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
-p3_label <- textGrob(substitute(paste("(c) ",theta==th*degree), list(th=thetas[3])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p1_label <- textGrob(substitute(paste("(a) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[1])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p2_label <- textGrob(substitute(paste("(b) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[2])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p3_label <- textGrob(substitute(paste("(c) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[3])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p4_label <- textGrob(substitute(paste("(d) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[4])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
 
-p_concept <- grid.arrange(ylab, legend, p1, p2, p3, xlab, p1_label, p2_label, p3_label, ncol=4, nrow=4, 
-             layout_matrix = rbind(c(1,2,2,2), c(1,3,4,5), c(1,6,6,6), c(1,7,8,9)),
-             widths = c(0.2, 2.7, 2.7, 2.7), heights = c(0.2, 2.5, 0.2, 0.2))
+p_concept <- grid.arrange(ylab, legend, p1, p2, p3, p4, xlab, ncol=3, nrow=4, 
+             layout_matrix = rbind(c(1,2,2), c(1,3,4), c(1,5,6), c(1,7,7)),
+             widths = c(0.2, 2.7, 2.7), heights = c(0.2, 2.5, 2.5, 0.2))
 
 ########################################
 ## 3. Export distance plots 
@@ -262,7 +294,8 @@ p1_dist <- ggplot(shortest_line, aes(x = X_n, y = Y_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_dist_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="A")
 
 shortest_line <- get_shortest_df(df_mean_2)
 distance <- aggregate(shortest_line[, 5], list(shortest_line$node), mean) %>% 
@@ -282,7 +315,8 @@ p2_dist <- ggplot(shortest_line, aes(x = X_n, y = Y_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_dist_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="B")
 
 shortest_line <- get_shortest_df(df_mean_3)
 distance <- aggregate(shortest_line[, 5], list(shortest_line$node), mean) %>% 
@@ -302,7 +336,29 @@ p3_dist <- ggplot(shortest_line, aes(x = X_n, y = Y_n, color = node)) +
   scale_colour_manual(values=palette) +
   guides(colour = guide_legend(override.aes = legend_dist_aes)) +
   theme_pubr() +
-  export_theme
+  export_theme +
+  labs(tag="C")
+
+shortest_line <- get_shortest_df(df_mean_4)
+distance <- aggregate(shortest_line[, 5], list(shortest_line$node), mean) %>% 
+  rename(node = Group.1) %>% rename(dist = x)
+distance_n <- aggregate(shortest_line[, 6], list(shortest_line$node), mean) %>% 
+  rename(node = Group.1) %>% rename(dist = x)
+dist_4 <- sum(distance$dist)
+dist_4_n <- sum(distance_n$dist)
+
+p4_dist <- ggplot(shortest_line, aes(x = X_n, y = Y_n, color = node)) + 
+  geom_line(linetype="dashed",size=1) +
+  geom_point(size = 3.5) +
+  geom_line(data = ref_line_data, aes(x = X_n, y = neutral_n, color = "neutral line"), linetype="dashed") +
+  geom_point(aes(color = node), size = 1.5) + 
+  scale_y_continuous(name="Absorption", limits=c(0,1)) +
+  scale_x_continuous(name="Impact", limits=c(0,1)) +
+  scale_colour_manual(values=palette) +
+  guides(colour = guide_legend(override.aes = legend_dist_aes)) +
+  theme_pubr() +
+  export_theme +
+  labs(tag="D")
 
 p1_dist <- p1_dist + theme(legend.position = 'top')
 legend <- get_legend(p1_dist)
@@ -310,42 +366,43 @@ legend <- get_legend(p1_dist)
 # Remove the legends from the plots
 # t,r,b,l
 p1_dist <- p1_dist + theme(legend.position = 'none',
-                           axis.title.x=element_blank(),
-                           axis.title.y=element_blank(),
-                           plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.title.x=element_blank(),
+                 axis.text.x=element_blank(),
+                 axis.title.y=element_blank())
 p2_dist <- p2_dist + theme(legend.position = 'none',
-                           axis.title.x=element_blank(),
-                           axis.title.y=element_blank(), 
-                           axis.text.y=element_blank(),
-                           plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.title.x=element_blank(),
+                 axis.text.x=element_blank(),
+                 axis.title.y=element_blank(), 
+                 axis.text.y=element_blank())
 p3_dist <- p3_dist + theme(legend.position = 'none',
-                           axis.title.x=element_blank(),
-                           axis.title.y=element_blank(),
-                           axis.text.y=element_blank(),
-                           plot.margin=unit(c(0.5,0.25,0.25,0.5), "cm"))
+                 axis.title.x=element_blank(),
+                 axis.title.y=element_blank())
+p4_dist <- p4_dist + theme(legend.position = 'none',
+                 axis.title.x=element_blank(),
+                 axis.title.y=element_blank(),
+                 axis.text.y=element_blank())
 
 ylab <- textGrob("Change absorption capability", rot = 90, gp = gpar(fontfamily = "", size = 10, cex = 1.5))
 xlab <- textGrob("Impact on performance", gp = gpar(fontfamily = "", size = 10, cex = 1.5))
-p1_label <- textGrob(substitute(paste("(a) ",theta==th*degree), list(th=thetas[1])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
-p2_label <- textGrob(substitute(paste("(b) ",theta==th*degree), list(th=thetas[2])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
-p3_label <- textGrob(substitute(paste("(c) ",theta==th*degree), list(th=thetas[3])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p1_label <- textGrob(substitute(paste("(a) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[1])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p2_label <- textGrob(substitute(paste("(b) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[2])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p3_label <- textGrob(substitute(paste("(c) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[3])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
+p4_label <- textGrob(substitute(paste("(d) ",theta==th*degree, h==height," mm"), list(th=thetas[1], height=heights[4])), gp = gpar(fontfamily = "LM Roman 10", size = 8, cex = 1.5))
 
-p_dist <- grid.arrange(ylab, legend, p1_dist, p2_dist, p3_dist, xlab, p1_label, p2_label, p3_label, ncol=4, nrow=4, 
-                          layout_matrix = rbind(c(1,2,2,2), c(1,3,4,5), c(1,6,6,6), c(1,7,8,9)),
-                          widths = c(0.2, 2.7, 2.7, 2.7), heights = c(0.2, 2.5, 0.2, 0.2))
+p_dist <- grid.arrange(ylab, legend, p1_dist, p2_dist, p3_dist, p4_dist, xlab, ncol=3, nrow=4, 
+                          layout_matrix = rbind(c(1,2,2), c(1,3,4), c(1,5,6), c(1,7,7)),
+                          widths = c(0.2, 2.7, 2.7), heights = c(0.2, 2.5, 2.5, 0.2))
 
 ########################################
 ## 4. Export comparison plots 
 ########################################
 ggsave(paste0(main_wd,img_dir,"scatter_mean_comp.pdf"),
        plot = p_concept,
-       device = cairo_pdf,
-       dpi = 320, height = 6, width = 16)
+       dpi = 320, height = 10, width = 13)
 
 ggsave(paste0(main_wd,img_dir,"scatter_mean_dist.pdf"),
        plot = p_dist,
-       device = cairo_pdf,
-       dpi = 320, height = 6, width = 16)
+       dpi = 320, height = 10, width = 13)
 
 ########################################
 ## 5. mean plot of single concept
@@ -457,15 +514,12 @@ p_cdf_pdf <- cdf1 + pad + pad + dens1 + pad + pad + plot + dens2 + cdf2 +
 ########################################
 ggsave(paste0(main_wd,img_dir,"C1/scatter_mean.pdf"),
        plot = p_mean,
-       device = cairo_pdf,
-       dpi = 320, width = 8)
+       dpi = 320, width = 8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf.pdf"),
        plot = p_cdf,
-       device = cairo_pdf,
-       dpi = 320, width = 8)
+       dpi = 320, width = 8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf_pdf.pdf"),
        plot = p_cdf_pdf,
-       device = cairo_pdf,
-       dpi = 320, width = 8)
+       dpi = 320, width = 8, height=8)

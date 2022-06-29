@@ -15,15 +15,12 @@ if __name__ == "__main__":
 
     num_threads = 1
 
-    folder = os.path.join('data','strut_fea','C1'); lean = 0.0
-    # folder = os.path.join('data','strut_fea','C2'); lean = 10.0
-    # folder = os.path.join('data','strut_fea','C3'); lean = 30.0
-    base_folder = os.path.join('data','strut_fea')
+    # folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
+    # folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
+    # folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 20.0
+    folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 20.0
 
-    # folder = os.path.join('data','strut_fea_50','C1'); lean = 0.0
-    # folder = os.path.join('data','strut_fea_50','C2'); lean = 10.0
-    folder = os.path.join('data','strut_fea_50','C3'); lean = 30.0
-    base_folder = os.path.join('data','strut_fea_50')
+    base_folder = os.path.join('data','strut_fea')
     check_folder(base_folder)
     check_folder(folder)
 
@@ -245,14 +242,16 @@ if __name__ == "__main__":
     class MAN(MarginNetwork):
 
         def randomize(self):
-            Requirement_1.random()
-            Requirement_2.random()
+            s1 = self.input_specs[0]  # T1 (stochastic)
+            s2 = self.input_specs[1]  # T2 (stochastic)
+            s3 = self.input_specs[2]  # BX (stochastic)
+            s4 = self.input_specs[3]  # BY (stochastic)
             s1.random()
             s2.random()
             s3.random()
             s4.random()
 
-        def forward(self, num_threads=1,recalculate_decisions=False,override_decisions=False,outputs=['dv','dv','dv']):
+        def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy='min_excess', outputs=['dv','dv','dv']):
 
             # retrieve MAN components
             d1 = self.design_params[0]  # h
@@ -300,14 +299,14 @@ if __name__ == "__main__":
                 self.fixed_params[3].value, # r2
                 self.fixed_params[4].value, # K
             ]
-            decision_1(b1.threshold, override_decisions, recalculate_decisions, num_threads, outputs[0],*args)
+            decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
             # w, T1, T2, h, theta, alpha, E, r1, r2, Ts)
             b3(b2.inverted, s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
             # Execute decision node for material and translate to yield stress: material
-            decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
+            decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b4.inv_call(decision_2.output_value)
             
@@ -325,14 +324,14 @@ if __name__ == "__main__":
             #     'id' : self.key
             # }
             # # Execute decision node for struts: n_struts, w, h, theta, BX, BY, E, r1, r2
-            # decision_3(decision_2.output_value, override_decisions, recalculate_decisions, num_threads, outputs[2], *args, **kwargs)
+            # decision_3(decision_2.output_value, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[2], *args, **kwargs)
             # # invert decided value: decided_value, w, h, theta, BX, BY, E, r1, r2
             # b5.inv_call(decision_3.output_value, b2.inverted, d1.value, d2.value, s3.value, s4.value, i2.value, i3.value, i4.value)
 
             # calculate n_struts sigma_y, w, h, theta, BX, BY, E, r1, r2
             b5.inv_call(decision_2.output_value, b2.inverted, d1.value, d2.value, s3.value, s4.value, i2.value, i3.value, i4.value)
             # Execute decision node for struts: n_struts, w, h, theta, BX, BY, E, r1, r2
-            decision_3(b5.inverted, override_decisions, recalculate_decisions, num_threads, outputs[2])
+            decision_3(b5.inverted, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[2])
 
             # Compute excesses
             e1(b1.threshold, decision_1.decided_value)
@@ -374,16 +373,18 @@ if __name__ == "__main__":
     # man.save('strut_comb',folder=base_folder)
     # sys.exit(0)
 
-    # load just the behaviour models
+    # # load just the behaviour models
     # b4.load(os.path.join(base_folder,'strut_comb'))
     # b5.load(os.path.join(base_folder,'strut_comb'))
     # b5.train_inverse('n_struts', sm_type='LS', bandwidth=[1e-3])
     # man.save('strut_comb',folder=base_folder)
+    # sys.exit(0)
 
     # load the MAN
     man.load('strut_comb',folder=base_folder)
 
     man.init_decisions(num_threads=num_threads)
+    man.allocate_margins()
     man.forward()
 
     # Perform Monte-Carlo simulation
@@ -394,6 +395,7 @@ if __name__ == "__main__":
 
         man.randomize()
         man.init_decisions(num_threads=num_threads)
+        man.allocate_margins()
         man.forward()
         man.compute_impact()
         man.compute_absorption(num_threads=num_threads)
@@ -402,48 +404,48 @@ if __name__ == "__main__":
 
     # man.load('strut_comb',folder=folder)
 
-    # View distribution of excess
-    man.margin_nodes[0].excess.view(xlabel='E1')
-    man.margin_nodes[1].excess.view(xlabel='E2')
-    man.margin_nodes[2].excess.view(xlabel='E3')
+    # # View distribution of excess
+    # man.margin_nodes[0].excess.view(xlabel='E1')
+    # man.margin_nodes[1].excess.view(xlabel='E2')
+    # man.margin_nodes[2].excess.view(xlabel='E3')
 
-    # View distribution of Impact on Performance
-    man.impact_matrix.view(0, 0, xlabel='E1,P1')
-    man.impact_matrix.view(1, 0, xlabel='E2,P1')
-    man.impact_matrix.view(2, 0, xlabel='E3,P1')
+    # # View distribution of Impact on Performance
+    # man.impact_matrix.view(0, 0, xlabel='E1,P1')
+    # man.impact_matrix.view(1, 0, xlabel='E2,P1')
+    # man.impact_matrix.view(2, 0, xlabel='E3,P1')
 
-    man.deterioration_vector.view(0, xlabel='S1')
-    man.deterioration_vector.view(1, xlabel='S2')
-    man.deterioration_vector.view(2, xlabel='S3')
-    man.deterioration_vector.view(3, xlabel='S4')
+    # man.deterioration_vector.view(0, xlabel='S1')
+    # man.deterioration_vector.view(1, xlabel='S2')
+    # man.deterioration_vector.view(2, xlabel='S3')
+    # man.deterioration_vector.view(3, xlabel='S4')
 
-    man.absorption_matrix.view(0, 3, xlabel='E1,S4')
-    man.absorption_matrix.view(1, 3, xlabel='E2,S4')
-    man.absorption_matrix.view(2, 3, xlabel='E3,S4')
+    # man.absorption_matrix.view(0, 3, xlabel='E1,S4')
+    # man.absorption_matrix.view(1, 3, xlabel='E2,S4')
+    # man.absorption_matrix.view(2, 3, xlabel='E3,S4')
 
-    man.absorption_matrix.view(2, 0, xlabel='E3,S1')
-    man.absorption_matrix.view(2, 1, xlabel='E3,S2')
-    man.absorption_matrix.view(2, 2, xlabel='E3,S3')
-    man.absorption_matrix.view(2, 3, xlabel='E3,S4')
+    # man.absorption_matrix.view(2, 0, xlabel='E3,S1')
+    # man.absorption_matrix.view(2, 1, xlabel='E3,S2')
+    # man.absorption_matrix.view(2, 2, xlabel='E3,S3')
+    # man.absorption_matrix.view(2, 3, xlabel='E3,S4')
 
-    impact_matrix = np.nanmean(man.impact_matrix.values,axis=(2,))  # average along performance parameters (assumes equal weighting)
-    absorption_matrix = np.nanmean(man.absorption_matrix.values,axis=(2,))  # average along input specs (assumes equal weighting)
+    # impact_matrix = np.nanmean(man.impact_matrix.values,axis=(2,))  # average along performance parameters (assumes equal weighting)
+    # absorption_matrix = np.nanmean(man.absorption_matrix.values,axis=(2,))  # average along input specs (assumes equal weighting)
     
-    rows = ['E%i'%i for i in range(absorption_matrix.shape[0])]
-    cols = ['S%i'%i for i in range(absorption_matrix.shape[1])]
-    plt.imshow(absorption_matrix, cmap='hot', interpolation='nearest')
-    plt.xticks(range(0, absorption_matrix.shape[1]),cols)
-    plt.yticks(range(0, absorption_matrix.shape[0]),rows)
+    # rows = ['E%i'%i for i in range(absorption_matrix.shape[0])]
+    # cols = ['S%i'%i for i in range(absorption_matrix.shape[1])]
+    # plt.imshow(absorption_matrix, cmap='hot', interpolation='nearest')
+    # plt.xticks(range(0, absorption_matrix.shape[1]),cols)
+    # plt.yticks(range(0, absorption_matrix.shape[0]),rows)
 
-    plt.show()
+    # plt.show()
 
-    rows = ['E%i'%i for i in range(impact_matrix.shape[0])]
-    cols = ['S%i'%i for i in range(impact_matrix.shape[1])]
-    plt.imshow(impact_matrix, cmap='hot', interpolation='nearest')
-    plt.xticks(range(0, impact_matrix.shape[1]),cols)
-    plt.yticks(range(0, impact_matrix.shape[0]),rows)
+    # rows = ['E%i'%i for i in range(impact_matrix.shape[0])]
+    # cols = ['S%i'%i for i in range(impact_matrix.shape[1])]
+    # plt.imshow(impact_matrix, cmap='hot', interpolation='nearest')
+    # plt.xticks(range(0, impact_matrix.shape[1]),cols)
+    # plt.yticks(range(0, impact_matrix.shape[0]),rows)
 
-    plt.show()
+    # plt.show()
 
-    # display the margin value plot
-    man.compute_mvp('scatter')
+    # # display the margin value plot
+    # man.compute_mvp('scatter')

@@ -12,8 +12,8 @@ from mvm.utilities import check_folder
 mpl.rcParams['axes.linewidth'] = 0.5
 
 # get the man object for the fea problem and load it
-base_folder = os.path.join('data','strut_fea_50','opt')
-img_folder = os.path.join('images','strut_fea_50')
+base_folder = os.path.join('data','strut_fea','opt')
+img_folder = os.path.join('images','strut_fea')
 check_folder(img_folder)
 man = get_man_combined()
 man_name = 'strut_comb'
@@ -23,8 +23,8 @@ lb = np.array([-0.009630757, 1.152203562])
 ub = np.array([0.3329746, 4.3151886])
 
 # # get the man object and load it
-# base_folder = os.path.join('data','strut_50','opt')
-# img_folder = os.path.join('images','strut_50')
+# base_folder = os.path.join('data','strut','opt')
+# img_folder = os.path.join('images','strut')
 # check_folder(img_folder)
 # man = get_man()
 # man_name = 'strut_s'

@@ -10,23 +10,31 @@ from mvm import nearest
 from mvm.DOELib import scaling
 from man_defs import get_man_combined, get_man
 
+###########################################################
+#                    ANALYTICAL PROBLEM                   #
+###########################################################
+# # get man object and load it
+# folder = os.path.join('data','strut','C1'); lean = 0.0; height = 15.0
+# # folder = os.path.join('data','strut','C2'); lean = 30.0; height = 15.0
+# # folder = os.path.join('data','strut','C3'); lean = 0.0; height = 20.0
+# # folder = os.path.join('data','strut','C4'); lean = 30.0; height = 20.0
+
+# man = get_man()
+# man_name = 'strut_s'
+# man.load(man_name,folder=folder)
+
+###########################################################
+#                       FEA PROBLEM                       #
+###########################################################
 # get man object for the fea problem and load it
-folder = os.path.join('data','strut_fea_50','C1'); lean = 0.0
-# folder = os.path.join('data','strut_fea_50','C2'); lean = 20.408163265306122
-# folder = os.path.join('data','strut_fea_50','C3'); lean = 28.571428571428573
+folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
+# folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
+# folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 20.0
+# folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 20.0
 
 man = get_man_combined()
 man_name = 'strut_comb'
 man.load(man_name,folder=folder)
-
-# # get man object and load it
-# # folder = os.path.join('data','strut','C1'); lean = 0.0
-# # folder = os.path.join('data','strut','C2'); lean = 10.0
-# folder = os.path.join('data','strut','C3'); lean = 30.0
-
-# man = get_man_combined()
-# man_name = 'strut_s'
-# man.load(man_name,folder=folder)
 
 ###########################################################
 # drop NaNs (infeasible input specifications)
@@ -83,7 +91,6 @@ sns.jointplot(data=df_mean, x="Impact",
     y="Absorption", hue="node")
 
 df_mean.to_csv(os.path.join(folder,'df_mean.csv'))
-
 
 ###########################################################
 # Scatter plot of average absorption and impact

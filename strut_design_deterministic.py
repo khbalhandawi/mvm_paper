@@ -168,11 +168,12 @@ performances = [p1, p2]
 class MAN(MarginNetwork):
 
     def randomize(self):
-        Requirement.random()
+        s1 = self.input_specs[0]  # T1 (stochastic)
+        s2 = self.input_specs[1]  # T2 (stochastic)
         s1.random()
         s2.random()
 
-    def forward(self, num_threads=1, recalculate_decisions=False, override_decisions=False,outputs=['dv','dv','dv']):
+    def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy='min_excess', outputs=['dv','dv','dv']):
         # retrieve MAN components
         d1 = self.design_params[0]  # h
         d2 = self.design_params[1]  # theta
@@ -214,14 +215,14 @@ class MAN(MarginNetwork):
             self.fixed_params[3].value, # r2
             self.fixed_params[4].value, # K
         ]
-        decision_1(b1.threshold, override_decisions, recalculate_decisions, num_threads, outputs[0],*args)
+        decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
         # invert decided value: decided_value, h, theta, E, r1, r2, K
         b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
         # T1, T2, h, theta, alpha, E, r1, r2, Ts)
         b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
         # Execute decision node for material and translate to yield stress: material
-        decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
+        decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
         # invert decided value: decided_value, h, theta, E, r1, r2, K
         b4.inv_call(decision_2.output_value)
 
@@ -295,6 +296,7 @@ for i, design in enumerate(design_doe.unscale()):
 
     # Perform MAN computations
     man.init_decisions()
+    man.allocate_margins()
     man.forward()
     man.compute_impact()
     man.compute_absorption()

@@ -6,6 +6,7 @@ from mvm import Design
 from mvm import FixedParam, DesignParam, InputSpec, Behaviour, Performance, MarginNode, MarginNetwork, Decision
 from mvm import GaussianFunc, UniformFunc
 
+
 def get_man_combined():
     n_threads = 1
     n_materials = 15
@@ -225,8 +226,10 @@ def get_man_combined():
     class MAN(MarginNetwork):
 
         def randomize(self):
-            Requirement_1.random()
-            Requirement_2.random()
+            s1 = self.input_specs[0]  # T1 (stochastic)
+            s2 = self.input_specs[1]  # T2 (stochastic)
+            s3 = self.input_specs[2]  # BX (stochastic)
+            s4 = self.input_specs[3]  # BY (stochastic)
             s1.random()
             s2.random()
             s3.random()
@@ -490,7 +493,8 @@ def get_man():
     class MAN(MarginNetwork):
 
         def randomize(self):
-            Requirement.random()
+            s1 = self.input_specs[0]  # T1 (stochastic)
+            s2 = self.input_specs[1]  # T2 (stochastic)
             s1.random()
             s2.random()
 
