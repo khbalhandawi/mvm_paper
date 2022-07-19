@@ -9,6 +9,7 @@ import multiprocess as mp
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.offline import plot, iplot, init_notebook_mode # Import offline plot functions from plotly
+from scipy import stats
 
 from mvm import nearest
 from mvm.DOELib import scaling
@@ -345,7 +346,7 @@ def get_man_DOE():
 
     return man
 
-def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[MarginNetwork], n_epochs: int,
+def evaluate_design_min_excess(i: int, design: List[Union[int,float]], mans: List[MarginNetwork], n_epochs: int,
                     base_folder: str, man_name: str, process_ids: List[int]=None):
 
     # Select a man to forward based on process id
@@ -356,7 +357,7 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
         pid = mp.current_process()._identity[0] - process_ids[0]
         man = mans[pid]
 
-    man.nominal_design_vector = np.array(design[:len(man.design_params)])
+    man.nominal_design_vector = np.array(design)
     man.reset()
     man.reset_inputs('all')
     man.reset_outputs()
@@ -365,8 +366,7 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
     for n in range(n_epochs):
         man.randomize()
         man.init_decisions()
-        man.decision_vector = design[len(man.design_params):]
-        man.allocate_margins('manual')
+        man.allocate_margins('min_excess')
         man.forward()
         man.compute_impact()
         man.compute_absorption()
@@ -378,16 +378,16 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
 if __name__ == "__main__":
 
     # get the man object for the fea problem and load it
-    base_folder = os.path.join('data','strut_fea','opt_manual')
-    img_folder = os.path.join('images','strut_fea','opt_manual')
+    base_folder = os.path.join('data','strut_fea','opt_minexcess')
+    img_folder = os.path.join('images','strut_fea','opt_minexcess')
     
     check_folder(img_folder)
     man = get_man_DOE()
     man_name = 'strut_comb'
     man.load(man_name,folder=base_folder)
 
-    man.input_specs[2].inc_user = 5
-    man.input_specs[3].inc_user = 5
+    man.input_specs[2].inc_user = 20
+    man.input_specs[3].inc_user = 20
 
     # for fea problem
     lb = np.array([-0.5973142383857094, 0.0])
@@ -409,7 +409,7 @@ if __name__ == "__main__":
     universe_d += [list(np.arange(lb_theta,ub_theta+10,10))]
     
     # Generate full-factorial DOE
-    universe = universe_d + man.universe_decision
+    universe = universe_d # For min_excess case, uncomment
     design_doe = list(itertools.product(*universe))
     n_designs = len(design_doe)
     n_epochs = 100
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     #---------------------------------------------------
     # Evaluate all the different designs
     # Parallel computation if num_threads > 1
-    num_threads = 3
+    num_threads = 8
 
     man_objs = []
     for pid in range(num_threads):
@@ -428,19 +428,13 @@ if __name__ == "__main__":
               'man_name': man_name}
 
     vargs_iterator = [[i,design,] for i,design in enumerate(design_doe)]
-    # Partition into chunks
-    vargs_iterator = vargs_iterator[:2000] #1
-    # vargs_iterator = vargs_iterator[2000:4000] #2
-    # vargs_iterator = vargs_iterator[4000:6000] #3
-    # vargs_iterator = vargs_iterator[6000::] #4
-
-    vkwargs_iterator = [{},] * len(vargs_iterator)
+    vkwargs_iterator = [{},] * n_designs
     fargs = []
     fkwargs = kwargs
     fkwargs['mans'] = man_objs
 
-    results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
-    sys.exit(0)
+    # results = parallel_sampling(evaluate_design_min_excess,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For min_excess case, uncomment
+    # sys.exit(0)
     
     #---------------------------------------------------
     # Load evaluations
@@ -503,7 +497,7 @@ if __name__ == "__main__":
             for d_i,d in enumerate(man.design_params):
                 nodal_dict[d.key] = design[d_i]
             for decision_i,decision in enumerate(man.decisions):
-                nodal_dict[decision.key] = design[d_i+1+decision_i]
+                nodal_dict[decision.key] = stats.mode(decision.selection_values.values)[0][0] # get most frequent decision
             nodal_dict['node'] = n
             nodal_dict['excess'] = e
             nodal_dict['threshold'] = tt
@@ -540,7 +534,7 @@ if __name__ == "__main__":
         for d_i,d in enumerate(man.design_params):
             total_dict[d.key] = design[d_i]
         for decision_i,decision in enumerate(man.decisions):
-            total_dict[decision.key] = design[d_i+1+decision_i]
+            total_dict[decision.key] = stats.mode(decision.selection_values.values)[0][0] # get most frequent decision
         for node_i,node in enumerate(man.margin_nodes):
             total_dict[node.key] = excess_mean[node_i]
         for p_i,p in enumerate(man.performances):
@@ -572,17 +566,21 @@ if __name__ == "__main__":
 
     col_name = 'material'
     new_col_name = 'dummy'
-    def replace_string_col(df,col_name,new_col_name):
+    mapping = pd.DataFrame({'material':{0:'Steel',1:'Inconel',2:'Titanium'}})
+    def replace_string_col(df,col_name,new_col_name,mapping=None):
         # create dummy column for material 
         # https://stackoverflow.com/a/64146570
         group_vars = df[col_name].unique()
-        dfg = pd.DataFrame({col_name:df[col_name].unique()})
+        if mapping is None:
+            dfg = pd.DataFrame({col_name:df[col_name].unique()})
+        else:
+            dfg = mapping.copy()
         dfg[new_col_name] = dfg.index
         df = pd.merge(df, dfg, on = col_name, how='left')
         return df,dfg
 
     # PCP for DOE
-    df,dfg = replace_string_col(df,col_name,new_col_name)
+    df,dfg = replace_string_col(df,col_name,new_col_name,mapping=mapping)
     dimensions = []
     for label,column in zip(labels,df.columns):
         if label == 'material':
@@ -611,7 +609,7 @@ if __name__ == "__main__":
 
     #-------------------------------------------------
     # PCP for nodal data
-    df_nodal,dfg_nodal = replace_string_col(df_nodal,col_name,new_col_name)
+    df_nodal,dfg_nodal = replace_string_col(df_nodal,col_name,new_col_name,mapping=mapping)
     dimensions_nodal = []
     for label,column in zip(labels_nodal,df_nodal.columns):
         if label == 'material':
