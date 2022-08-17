@@ -43,8 +43,8 @@ export_theme <- theme_tufte() +
     plot.tag = element_text(family="",size=12,face="bold"),
     
     ## Legends
-    legend.title=element_text(size=10,family="",face="italic"),
-    legend.text=element_text(size=10,family=""),
+    legend.title=element_text(size=14,family="",face="italic"),
+    legend.text=element_text(size=14,family=""),
     legend.key.size= unit(0.5, "cm"),
     legend.margin = margin(0,0,0,0, "cm"),
     
@@ -101,6 +101,7 @@ p_pairs <- ggpairs(df_matrix, mapping = ggplot2::aes(colour=node, fill = node),
                    # upper = list(continuous = wrap(cor_func,method = 'spearman', symbol = expression('\u03C1 ='))),
                    lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
                    legend=1) +
+  labs(fill = "margin node") +
   export_theme +
   theme(legend.position = "bottom")
 

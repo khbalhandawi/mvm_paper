@@ -356,35 +356,45 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
         pid = mp.current_process()._identity[0] - process_ids[0]
         man = mans[pid]
 
-    man.nominal_design_vector = np.array(design[:len(man.design_params)])
-    man.reset()
-    man.reset_inputs('all')
-    man.reset_outputs()
-
-    # Perform Monte-Carlo simulation
-    for n in range(n_epochs):
-        man.randomize()
-        man.init_decisions()
-        man.decision_vector = design[len(man.design_params):]
-        man.allocate_margins('manual')
-        man.forward()
-        man.compute_impact()
-        man.compute_absorption()
-
     folder = os.path.join(base_folder,'d%i'%i)
-    check_folder(folder) # create directory if it does not exist
-    man.save(man_name,folder=folder,results_only=True)
+    exists = check_folder(folder) # create directory if it does not exist
+
+    if not exists:
+        man.nominal_design_vector = np.array(design[:len(man.design_params)])
+        man.reset()
+        man.reset_inputs('all')
+        man.reset_outputs()
+
+        # Perform Monte-Carlo simulation
+        for n in range(n_epochs):
+            # man.randomize()
+            man.init_decisions()
+            man.decision_vector = design[len(man.design_params):]
+            man.allocate_margins('manual')
+            man.forward()
+            man.compute_impact()
+            man.compute_absorption()
+
+        man.save(man_name,folder=folder,results_only=True)
 
 if __name__ == "__main__":
 
     # get the man object for the fea problem and load it
-    base_folder = os.path.join('data','strut_fea','opt_manual')
-    img_folder = os.path.join('images','strut_fea','opt_manual')
+    base_folder = os.path.join('data','strut_fea','opt_manual_deterministic')
+    img_folder = os.path.join('images','strut_fea','opt_manual_deterministic')
+    # base_folder = os.path.join('data','strut_fea','opt_manual_stochastic')
+    # img_folder = os.path.join('images','strut_fea','opt_manual_stochastic')
     
     check_folder(img_folder)
     man = get_man_DOE()
     man_name = 'strut_comb'
     man.load(man_name,folder=base_folder)
+
+    nominal_specs = [434, 432, 80, 80]
+    man.input_specs[0].value = nominal_specs[0]
+    man.input_specs[1].value = nominal_specs[1]
+    man.input_specs[2].value = nominal_specs[2]
+    man.input_specs[3].value = nominal_specs[3]
 
     man.input_specs[2].inc_user = 5
     man.input_specs[3].inc_user = 5
@@ -411,13 +421,14 @@ if __name__ == "__main__":
     # Generate full-factorial DOE
     universe = universe_d + man.universe_decision
     design_doe = list(itertools.product(*universe))
+    # design_doe = [(14, 10, 90, 'Inconel', 10),] # try a unique design
     n_designs = len(design_doe)
-    n_epochs = 100
+    n_epochs = 1
 
     #---------------------------------------------------
     # Evaluate all the different designs
     # Parallel computation if num_threads > 1
-    num_threads = 3
+    num_threads = 8
 
     man_objs = []
     for pid in range(num_threads):
@@ -429,7 +440,7 @@ if __name__ == "__main__":
 
     vargs_iterator = [[i,design,] for i,design in enumerate(design_doe)]
     # Partition into chunks
-    vargs_iterator = vargs_iterator[:2000] #1
+    # vargs_iterator = vargs_iterator[:2000] #1
     # vargs_iterator = vargs_iterator[2000:4000] #2
     # vargs_iterator = vargs_iterator[4000:6000] #3
     # vargs_iterator = vargs_iterator[6000::] #4
@@ -439,8 +450,8 @@ if __name__ == "__main__":
     fkwargs = kwargs
     fkwargs['mans'] = man_objs
 
-    results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
-    sys.exit(0)
+    # results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
+    # sys.exit(0)
     
     #---------------------------------------------------
     # Load evaluations
@@ -607,7 +618,7 @@ if __name__ == "__main__":
             dimensions = list(dimensions)
         )
     ]
-    plot(data_pd, show_link=False, filename = os.path.join(img_folder,'pcp_doe'), auto_open=True)
+    plot(data_pd, show_link=False, filename = os.path.join(img_folder,'pcp_doe.html'), auto_open=True)
 
     #-------------------------------------------------
     # PCP for nodal data
@@ -636,7 +647,7 @@ if __name__ == "__main__":
             dimensions = list(dimensions_nodal)
         )
     ]
-    plot(data_pd_nodal, show_link=False, filename = os.path.join(img_folder,'pcp_nodal'), auto_open=True)
+    plot(data_pd_nodal, show_link=False, filename = os.path.join(img_folder,'pcp_nodal.html'), auto_open=True)
 
 
     #---------------------------------------------------

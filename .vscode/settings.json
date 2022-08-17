@@ -5,7 +5,7 @@
         "mvmlib/src",
     ],
     "python.testing.pytestArgs": [
-        "mvmlib"
+        "."
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

@@ -12,22 +12,20 @@ from mvm import GaussianFunc, UniformFunc
 from mvm import nearest
 
 num_threads = 1
-n_materials = 3
-widths = list(range(60,120+5,5))
 
 # define fixed parameters
 i1 = FixedParam(7.17E-06, 'I1', description='Coefficient of thermal expansion', symbol='alpha')
 i2 = FixedParam(156.3E3, 'I2', description='Youngs modulus', symbol='E')
 i3 = FixedParam(346.5, 'I3', description='Radius of the hub', symbol='r1')
 i4 = FixedParam(536.5, 'I4', description='Radius of the shroud', symbol='r2')
-i5 = FixedParam(1.5, 'I5', description='Column effective length factor', symbol='K')
+i5 = FixedParam(2.5, 'I5', description='Column effective length factor', symbol='K')
 i6 = FixedParam(25.0, 'I6', description='ambient temperature', symbol='Ts')
 
 fixed_params = [i1, i2, i3, i4, i5, i6,]
 
 # define design parameters
 d1 = DesignParam(15.0, 'D1', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
-d2 = DesignParam(10.0, 'D2', universe=[0.0, 30.0], variable_type='FLOAT', description='lean angle', symbol='theta')
+d2 = DesignParam(10.0, 'D2', universe=[0.0, 50.0], variable_type='FLOAT', description='lean angle', symbol='theta')
 design_params = [d1, d2]
 
 # T1,T2 distribution (Uniform)
@@ -62,14 +60,14 @@ input_specs = [s1, s2, s3, s4]
 # this is the force model
 class B1(Behaviour):
     def __call__(self, T1, T2, h, theta, alpha, E, r1, r2, Ts):
-        coeffs = [0.95, 1.05, 0.97]
-        coeffs = 3 * [1.0, ]
+        coeffs = [0.95, 1.05, 1.05]
+        # coeffs = 3 * [1.0, ]
         w_nominal = 60.0
         n_struts_nominal = 12
 
         length = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
 
-        force_thermal = (E * w_nominal * h * alpha) * ((T2 * coeffs[0] * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.cos(
+        force_thermal = (E * w_nominal * h * alpha) * (((T2 ** coeffs[0]) * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.cos(
             np.deg2rad(theta)) / length
 
         # force_bearing = (BY*np.cos(np.deg2rad(theta)) + BX*np.sin(np.deg2rad(theta)))*1e4/n_struts_nominal
@@ -97,15 +95,15 @@ class B2(Behaviour):
 # this is the stress model
 class B3(Behaviour):
     def __call__(self, T1, T2, h, theta, alpha, E, r1, r2, Ts):
-        coeffs = [0.95, 1.05, 0.97]
-        coeffs = 3 * [1.0, ]
+        coeffs = [0.95, 1.01, 1.01]
+        # coeffs = 3 * [1.0, ]
         n_struts_nominal = 12
 
         length = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
 
-        sigma_a_thermal = (E * alpha) * ((T2 * coeffs[1] * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.cos(np.deg2rad(theta)) / length
+        sigma_a_thermal = (E * alpha) * (((T2 ** coeffs[1]) * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.cos(np.deg2rad(theta)) / length
         sigma_m_thermal = (3 / 2) * ((E * h) / (length ** 2)) * (
-                alpha * ((T2 * coeffs[2] * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.sin(np.deg2rad(theta)))
+                alpha * (((T2 ** coeffs[2]) * r2) - (T1 * r1) - (Ts * (r2 - r1))) * np.sin(np.deg2rad(theta)))
         
         # F_axial = (BY*np.cos(np.deg2rad(theta)) + BX*np.sin(np.deg2rad(theta)))*1e4/n_struts_nominal
         # F_bending = (BX*np.cos(np.deg2rad(theta)) - BY*np.sin(np.deg2rad(theta)))*1e4/n_struts_nominal
@@ -122,10 +120,20 @@ class B4(Behaviour):
     def __call__(self, material):
 
         material_dict = {
-            'Inconel'   : {
+            'dummy'   : {
                 'sigma_y' : 92, # MPa
                 'rho' : 11.95e-06, # kg/mm3
                 'cost' : 0.1 # USD/kg
+            },
+            'Steel'   : {
+                'sigma_y' : 250, # MPa
+                'rho' : 10.34e-06, # kg/mm3
+                'cost' : 0.09478261, # USD/kg
+                },
+            'Inconel'  : {
+                'sigma_y' : 460,  # MPa
+                'rho' : 8.19e-06,  # kg/mm3
+                'cost' : 0.46,  # USD/kg
                 },
             'Titanium'  : {
                 'sigma_y' : 828, # MPa
@@ -135,13 +143,14 @@ class B4(Behaviour):
         }
 
         # generate 10 materials by linearly interpolating
-        df = pd.DataFrame(columns=material_dict['Inconel'].keys(), index=range(n_materials), dtype=float)
-        df.iloc[0] = material_dict['Inconel']
+        df = pd.DataFrame(columns=material_dict['dummy'].keys(), index=range(15), dtype=float)
+        df.iloc[0] = material_dict['dummy']
         df.iloc[-1] = material_dict['Titanium']
         df.interpolate(method='linear',axis=0,inplace=True)
         material_dict_interp = df.transpose().to_dict()
-
         chosen_mat = material_dict_interp[material]
+
+        # chosen_mat = material_dict[material]
 
         self.intermediate = [chosen_mat['rho'], chosen_mat['cost']]
         self.decided_value = chosen_mat['sigma_y']
@@ -199,15 +208,15 @@ b5 = B5(n_i=0, n_p=0, n_dv=1, n_tt=0, key='B5')
 b6 = B6(n_i=0, n_p=2, n_dv=0, n_tt=0, key='B6')
 
 # Define decision nodes and a model to convert to decided values
-decision_1 = Decision(universe=widths, variable_type='ENUM', key='decision_1',
+decision_1 = Decision(universe=list(range(60,120+1,1)), variable_type='ENUM', key='decision_1',
                     direction='must_not_exceed', decided_value_model=b2, n_nodes=1,
                     description='the vane width selection')
 
-decision_2 = Decision(universe=list(range(n_materials)), variable_type='ENUM', key='decision_2',
+decision_2 = Decision(universe=list(range(15)), variable_type='ENUM', key='decision_2',
                     direction='must_not_exceed', decided_value_model=b4, n_nodes=1, 
                     description='The type of material')
 
-decision_3 = Decision(universe=list(range(6,30+1,2)), variable_type='ENUM', key='decision_3',
+decision_3 = Decision(universe=list(range(6,30+1,1)), variable_type='ENUM', key='decision_3',
                     direction='must_not_exceed', decided_value_model=None, n_nodes=1,
                     description='the number of struts')
 
@@ -318,7 +327,7 @@ class MAN(MarginNetwork):
         # calculate n_struts sigma_y, w, h, theta, BX, BY, E, r1, r2
         b5.inv_call(decision_2.output_value, b2.inverted, d1.value, d2.value, s3.value, s4.value, i2.value, i3.value, i4.value)
         # Execute decision node for struts: n_struts, w, h, theta, BX, BY, E, r1, r2
-        decision_3(b5.inverted, recalculate_decisions, num_threads, outputs[2])
+        decision_3(b5.inverted, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[2])
 
         # Compute excesses
         e1(b1.threshold, decision_1.decided_value)
@@ -334,6 +343,8 @@ class MAN(MarginNetwork):
 
 man = MAN(design_params, input_specs, fixed_params,
         behaviours, decisions, margin_nodes, performances, 'MAN_1')
+
+base_folder = os.path.join('data','strut_fea')
 
 # # train material surrogate
 # variable_dict = {
@@ -355,22 +366,23 @@ man = MAN(design_params, input_specs, fixed_params,
 #     'r2' : {'type' : 'fixed', 'limits' : i4.value},
 # }
 # b5.train_surrogate(variable_dict,n_samples=1000,num_threads=num_threads)
-# man.save('strut_comb',folder='strut_fea')
+# man.save('strut_comb',folder=base_folder)
 # b5.train_inverse('n_struts',sm_type='KRG', bandwidth=[1e-3])
-# man.save('strut_comb',folder='strut_fea')
+# man.save('strut_comb',folder=base_folder)
 # sys.exit(0)
 
 # load just the behaviour models
-b4.load(os.path.join('strut_fea','strut_comb'))
-b5.load(os.path.join('strut_fea','strut_comb'))
-# b5.train_inverse('n_struts', sm_type='LS', bandwidth=[1e-3])
-man.save('strut_comb_d',folder='strut_fea')
+# b4.load(os.path.join(base_folder,'strut_comb'))
+# b5.load(os.path.join(base_folder,'strut_comb'))
+# b5.train_inverse('n_struts', sm_type='KRG', bandwidth=[1e-3])
+# man.save('strut_comb_d',folder=base_folder)
 
 # load the MAN
-# man.load('strut_comb',folder='strut_fea')
+man.load('strut_comb',folder=base_folder)
 
 man.init_decisions(num_threads=num_threads)
-man.allocate_margins()
+man.decision_vector = [60, 10, 20]
+man.allocate_margins('manual')
 man.forward()
 
 # Run a forward pass of the MAN
@@ -412,10 +424,9 @@ plt.yticks(range(0, impact_matrix.shape[0]),rows)
 plt.show()
 
 # Effect of alternative designs
-n_designs = 100
-lb = np.array(man.universe_d)[:, 0]
-ub = np.array(man.universe_d)[:, 1]
-design_doe = Design(lb, ub, n_designs, 'LHS')
+# designs = [[70,10,6+i] for i in range(25)]
+designs = [[60+5*i,10,20] for i in range(13)]
+
 
 # create empty figure
 fig, ax = plt.subplots(figsize=(7, 8))
@@ -424,19 +435,23 @@ ax.set_ylabel('Change absorption capability')
 
 X = np.empty((0, len(man.margin_nodes)))
 Y = np.empty((0, len(man.margin_nodes)))
-D = np.empty((0,len(man.design_params)))
-for i, design in enumerate(design_doe.unscale()):
-    man.nominal_design_vector = design
+E = np.empty((0, len(man.margin_nodes)))
+TT = np.empty((0, len(man.margin_nodes)))
+DV = np.empty((0, len(man.margin_nodes)))
+TT_A = np.empty((0, len(man.margin_nodes)))
+
+for i, design in enumerate(designs):
     man.reset()
     man.reset_outputs()
 
     # Display progress bar
-    sys.stdout.write("Progress: %d%%   \r" % ((i / n_designs) * 100))
+    sys.stdout.write("Progress: %d%%   \r" % ((i / len(designs)) * 100))
     sys.stdout.flush()
 
     # Perform MAN computations
     man.init_decisions()
-    man.allocate_margins()
+    man.decision_vector = design
+    man.allocate_margins('manual')
     man.forward()
     man.compute_impact()
     man.compute_absorption()
@@ -447,16 +462,40 @@ for i, design in enumerate(design_doe.unscale()):
     y = np.mean(man.absorption_matrix.values,
                 axis=(1, 2)).ravel()  # average along input specs (assumes equal weighting)
 
-    if not all(np.isnan(y)):
-        X = np.vstack((X, x))
-        Y = np.vstack((Y, y))
-        D = np.vstack((D,design))
+    # if not all(np.isnan(y)):
+    #     X = np.vstack((X, x))
+    #     Y = np.vstack((Y, y))
+    X = np.vstack((X, x))
+    Y = np.vstack((Y, y))
+    E = np.vstack((E, man.excess_vector))
+    TT = np.vstack((TT, man.tt_vector))
+    DV = np.vstack((DV, man.dv_vector))
+
+    man.forward(outputs=['tt',]*len(man.decisions)) # get absorption threshold
+    TT_A = np.vstack((TT_A, man.tt_vector))
 
     # plot the results
     color = np.random.random((1, 3))
     ax.scatter(x, y, c=color)
 
 plt.show()
+
+widths = [designs[i][0] for i in range(13)]
+
+# create empty figure for CAC
+fig, ax = plt.subplots(figsize=(7, 6))
+ax.set_xlabel('Decided width w')
+ax.set_ylabel('Change absorption capability (E3)')
+ax.plot(widths,Y[:,2])
+plt.show()
+
+# create empty figure for IoP
+fig, ax = plt.subplots(figsize=(7, 6))
+ax.set_xlabel('Decided width w')
+ax.set_ylabel('Impact on performance (E1)')
+ax.plot(widths,X[:,0])
+plt.show()
+
 
 # Calculate distance metric
 p1 = np.array([X.min(), Y.min()])
@@ -478,7 +517,7 @@ for i, (x, y) in enumerate(zip(X, Y)):
 distances_sorted = distances[np.argsort(-distances)]
 X_sorted = X[np.argsort(-distances)]
 Y_sorted = Y[np.argsort(-distances)]
-D_sorted = D[np.argsort(-distances)]
+D_sorted = list(np.array(designs)[np.argsort(-distances)])
 
 # display distances only for three designs
 X_plot = X_sorted[[0,int(len(X)/2),-1], :]
@@ -519,7 +558,7 @@ ax.hist(distances,bins=len(distances))
 plt.show()
 
 best_i = np.argmax(distances)
-best_design = D[best_i,:]
+best_design = designs[best_i]
 
 print('---------------------------------')
 result = 'The best design:\n'
@@ -530,7 +569,7 @@ result += '---------------------------------'
 print(result)
 
 worst_i = np.argmin(distances)
-worst_design = D[worst_i,:]
+worst_design = designs[worst_i]
 
 print('---------------------------------')
 result = 'The worst design:\n'

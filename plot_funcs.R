@@ -44,8 +44,8 @@ export_theme <- theme_tufte() +
     plot.tag = element_text(family="",size=10,face="bold"),
     
     ## Legends
-    legend.title=element_text(size=14,family="",face="italic"),
-    legend.text=element_text(size=14,family=""),
+    legend.title=element_text(size=16,family="",face="italic"),
+    legend.text=element_text(size=15,family=""),
     legend.key.size= unit(0.5, "cm"),
     legend.margin = margin(0,0,0,0, "cm"),
     ## Strips for facet_wrap

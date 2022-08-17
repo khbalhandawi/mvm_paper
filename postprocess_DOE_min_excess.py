@@ -45,11 +45,13 @@ def get_man_DOE():
     Range = np.array([100, 100]) / (20 * 0.25)
     Requirement_1 = UniformFunc(center, Range, 'temp')
 
+    nominal_specs = [450, 425, 120, 120]
+
     # define input specifications
-    s1 = InputSpec(450, 'S1', universe=[325, 550], variable_type='FLOAT', cov_index=0,
+    s1 = InputSpec(nominal_specs[0], 'S1', universe=[325, 550], variable_type='FLOAT', cov_index=0,
                 description='nacelle temperature', distribution=Requirement_1,
                 symbol='T1', inc=-1e-1, inc_type='rel')
-    s2 = InputSpec(425, 'S2', universe=[325, 550], variable_type='FLOAT', cov_index=1,
+    s2 = InputSpec(nominal_specs[1], 'S2', universe=[325, 550], variable_type='FLOAT', cov_index=1,
                 description='gas surface temperature', distribution=Requirement_1,
                 symbol='T2', inc=+1e-1, inc_type='rel')
 
@@ -59,10 +61,10 @@ def get_man_DOE():
     Requirement_2 = UniformFunc(center, Range, 'force')
 
     # define input specifications
-    s3 = InputSpec(120, 'S3', universe=[50, 200], variable_type='FLOAT', cov_index=0,
+    s3 = InputSpec(nominal_specs[2], 'S3', universe=[50, 200], variable_type='FLOAT', cov_index=0,
                 description='bearing load x', distribution=Requirement_2,
                 symbol='BX', inc=+1e-0, inc_type='rel')
-    s4 = InputSpec(120, 'S4', universe=[50, 200], variable_type='FLOAT', cov_index=1,
+    s4 = InputSpec(nominal_specs[3], 'S4', universe=[50, 200], variable_type='FLOAT', cov_index=1,
                 description='bearing load y', distribution=Requirement_2,
                 symbol='BY', inc=+1e-0, inc_type='rel')
 
@@ -364,7 +366,7 @@ def evaluate_design_min_excess(i: int, design: List[Union[int,float]], mans: Lis
 
     # Perform Monte-Carlo simulation
     for n in range(n_epochs):
-        man.randomize()
+        # man.randomize()
         man.init_decisions()
         man.allocate_margins('min_excess')
         man.forward()
@@ -378,16 +380,24 @@ def evaluate_design_min_excess(i: int, design: List[Union[int,float]], mans: Lis
 if __name__ == "__main__":
 
     # get the man object for the fea problem and load it
-    base_folder = os.path.join('data','strut_fea','opt_minexcess')
-    img_folder = os.path.join('images','strut_fea','opt_minexcess')
-    
+    base_folder = os.path.join('data','strut_fea','opt_minexcess_deterministic')
+    img_folder = os.path.join('images','strut_fea','opt_minexcess_deterministic')
+    # base_folder = os.path.join('data','strut_fea','opt_minexcess_stochastic')
+    # img_folder = os.path.join('images','strut_fea','opt_minexcess_stochastic')
+
     check_folder(img_folder)
     man = get_man_DOE()
     man_name = 'strut_comb'
     man.load(man_name,folder=base_folder)
 
-    man.input_specs[2].inc_user = 20
-    man.input_specs[3].inc_user = 20
+    nominal_specs = [434, 432, 80, 80]
+    man.input_specs[0].value = nominal_specs[0]
+    man.input_specs[1].value = nominal_specs[1]
+    man.input_specs[2].value = nominal_specs[2]
+    man.input_specs[3].value = nominal_specs[3]
+
+    man.input_specs[2].inc_user = 5
+    man.input_specs[3].inc_user = 5
 
     # for fea problem
     lb = np.array([-0.5973142383857094, 0.0])
@@ -411,8 +421,9 @@ if __name__ == "__main__":
     # Generate full-factorial DOE
     universe = universe_d # For min_excess case, uncomment
     design_doe = list(itertools.product(*universe))
+    # design_doe = [(14, 10),] # try a unique design
     n_designs = len(design_doe)
-    n_epochs = 100
+    n_epochs = 1
 
     #---------------------------------------------------
     # Evaluate all the different designs
@@ -428,12 +439,13 @@ if __name__ == "__main__":
               'man_name': man_name}
 
     vargs_iterator = [[i,design,] for i,design in enumerate(design_doe)]
-    vkwargs_iterator = [{},] * n_designs
+    # vargs_iterator = vargs_iterator[0:1]
+    vkwargs_iterator = [{},] * len(vargs_iterator)
     fargs = []
     fkwargs = kwargs
     fkwargs['mans'] = man_objs
 
-    # results = parallel_sampling(evaluate_design_min_excess,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For min_excess case, uncomment
+    results = parallel_sampling(evaluate_design_min_excess,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For min_excess case, uncomment
     # sys.exit(0)
     
     #---------------------------------------------------
@@ -560,7 +572,7 @@ if __name__ == "__main__":
 
     df = df.set_axis(labels, axis=1, inplace=False)
     df_nodal = df_nodal.set_axis(labels_nodal, axis=1, inplace=False)
-
+    df
     #---------------------------------------------------
     # Create PCP
 
@@ -605,7 +617,7 @@ if __name__ == "__main__":
             dimensions = list(dimensions)
         )
     ]
-    plot(data_pd, show_link=False, filename = os.path.join(img_folder,'pcp_doe'), auto_open=True)
+    plot(data_pd, show_link=False, filename = os.path.join(img_folder,'pcp_doe.html'), auto_open=True)
 
     #-------------------------------------------------
     # PCP for nodal data
@@ -634,7 +646,7 @@ if __name__ == "__main__":
             dimensions = list(dimensions_nodal)
         )
     ]
-    plot(data_pd_nodal, show_link=False, filename = os.path.join(img_folder,'pcp_nodal'), auto_open=True)
+    plot(data_pd_nodal, show_link=False, filename = os.path.join(img_folder,'pcp_nodal.html'), auto_open=True)
 
 
     #---------------------------------------------------

@@ -68,5 +68,5 @@ plot_inset
 ggsave(paste0(main_wd,img_dir,"impact_bars.pdf"),
        plot = plot, height=4, width=6.5)
 
-ggsave(paste0(main_wd,img_dir,"impact_bars.pdf"),
+ggsave(paste0(main_wd,img_dir,"impact_inset.pdf"),
        plot = plot_inset, height=4, width=3)

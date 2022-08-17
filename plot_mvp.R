@@ -197,6 +197,7 @@ p1 <- ggplot(df_mean_1, aes(x = Impact_n, y = Absorption_n, color = node)) +
   scale_y_continuous(limits=c(0,1)) +
   scale_x_continuous(limits=c(0,1)) +
   scale_colour_manual(values=palette) +
+  labs(color = "margin node\n") +
   guides(colour = guide_legend(override.aes = legend_aes)) +
   theme_pubr() +
   export_theme +
@@ -292,6 +293,7 @@ p1_dist <- ggplot(shortest_line, aes(x = X_n, y = Y_n, color = node)) +
   scale_y_continuous(name="Absorption", limits=c(0,1)) +
   scale_x_continuous(name="Impact", limits=c(0,1)) +
   scale_colour_manual(values=palette) +
+  labs(color = "margin node\n") +
   guides(colour = guide_legend(override.aes = legend_dist_aes)) +
   theme_pubr() +
   export_theme +
@@ -415,6 +417,7 @@ plot <- ggplot(df_mean, aes(x = Impact, y = Absorption, color = node)) +
     geom_point(aes(color = node), size = 2.5) + 
     geom_point(shape = 1, color = "black", size = 3, stroke = 0.1, alpha = 0.2) +
   geom_rug() + 
+  labs(color = "margin node\n") +
   scale_y_continuous(limits=c(a_min,a_max), name = "Change absorption capability") +
   scale_x_continuous(limits=c(i_min,i_max), name = "Impact on performance") +
   theme_pubr() +
@@ -424,14 +427,16 @@ plot <- ggplot(df_mean, aes(x = Impact, y = Absorption, color = node)) +
 
 dens1 <- ggplot(df_mean, aes(x = Impact, fill = node)) + 
   geom_density(alpha = 0.4) + 
-  scale_x_continuous(limits=c(i_min,i_max), name = "") + 
+  scale_x_continuous(limits=c(i_min,i_max), name = "") +
+  labs(color = "margin node\n") +
   theme_void() + 
   theme(legend.position = "none") +
   export_theme
 
 dens2 <- ggplot(df_mean, aes(x = Absorption, fill = node)) + 
   geom_density(alpha = 0.4) + 
-  scale_x_continuous(limits=c(a_min,a_max), name = "") + 
+  scale_x_continuous(limits=c(a_min,a_max), name = "") +
+  labs(color = "margin node\n") +
   theme_void() + 
   theme(legend.position = "none") + 
   coord_flip() +
@@ -458,6 +463,7 @@ plot <- ggplot(df_mean, aes(x = Impact, y = Absorption, color = node)) +
   geom_point(aes(color = node), size = 2.5) + 
   geom_point(shape = 1, color = "black", size = 3, stroke = 0.1, alpha = 0.2) +
   geom_rug() + 
+  labs(color = "margin node\n") +
   scale_y_continuous(limits=c(a_min,a_max), name = "Change absorption capability") +
   scale_x_continuous(limits=c(i_min,i_max), name = "Impact on performance") +
   theme_pubr() +
@@ -469,14 +475,29 @@ cdf1 <- ggplot(df_mean, aes(x = Impact, fill = node, color = node)) +
   stat_ecdf(geom = "step") + 
   scale_x_continuous(limits=c(i_min,i_max), name = "") + 
   ylab("Probability") +
+  labs(color = "margin node\n") +
   theme_void() + 
   theme(legend.position = "none") +
   export_theme
+
+# get function values
+tensor_comp <- df_mean$Impact[df_mean$node==2]
+dat_ecdf <- 
+  data.frame(x=unique(tensor_comp),
+             y=ecdf(tensor_comp)(unique(tensor_comp))*length(tensor_comp))
+#rescale y to 0,1 range
+dat_ecdf$y <- 
+  scale(dat_ecdf$y,center=min(dat_ecdf$y),scale=diff(range(dat_ecdf$y)))
+
+# plot using computed CDF
+ggplot(dat_ecdf[order(dat_ecdf$x),],aes(x,y)) +
+  geom_step()
 
 cdf2 <- ggplot(df_mean, aes(x = Absorption, fill = node, color = node)) + 
   stat_ecdf(geom = "step") + 
   scale_x_continuous(limits=c(a_min,a_max), name = "") + 
   ylab("Probability") +
+  labs(color = "margin node\n") +
   scale_y_continuous(breaks = c(0.0,0.5,1.0)) +
   theme_void() + 
   theme(legend.position = "none") + 
