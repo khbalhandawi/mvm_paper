@@ -20,21 +20,21 @@ export_theme <- theme_tufte() +
     axis.text.y=element_text(size=12,family=""),
     axis.title.x=element_text(size=14,family="",vjust=-1),
     axis.title.y=element_text(size=14,family=""),
-    
+
     ## Axis lines
     axis.line = element_line(colour="black", size = 0.1),
     axis.ticks = element_line(size=0.1),
-    
+
     ## Title
     plot.title = element_text(family="",size=10,face="bold",hjust=0.5),
     plot.tag = element_text(family="",size=12,face="bold"),
-    
+
     ## Legends
     legend.title=element_text(size=14,family="",face="italic"),
     legend.text=element_text(size=12,family=""),
     legend.key.size= unit(0.5, "cm"),
     legend.margin = margin(0,0,0,0, "cm"),
-    
+
     ## Strips for facet_wrap
     strip.text=element_text(size=14,family="",face="bold"),
     strip.background=element_rect(fill="#f0f0f0",size=0.1)
@@ -43,11 +43,11 @@ export_theme <- theme_tufte() +
 
 
 df_matrix <- read.csv(paste0(main_wd,data_dir,"/impact_data.csv"))
-df_matrix <- df_matrix %>% 
+df_matrix <- df_matrix %>%
   mutate(Margin = as.factor(Margin)) # convert to categorical type
 
 # Draw barplot with grouping & stacking
-plot <- ggplot(df_matrix, aes(x = Concept, y = Impact, fill = Margin)) + 
+plot <- ggplot(df_matrix, aes(x = Concept, y = Impact, fill = Margin)) +
   geom_bar(stat = "identity", width = 0.9, position = "stack") +
   coord_flip() +
   facet_wrap(~ facet, ncol = 1) +
@@ -56,8 +56,8 @@ plot <- ggplot(df_matrix, aes(x = Concept, y = Impact, fill = Margin)) +
 plot
 
 # Draw barplot with grouping & stacking
-df_inset <- df_matrix[df_matrix$facet=='manuf.',]
-plot_inset <- ggplot(df_inset, aes(x = Concept, y = Impact, fill = Margin)) + 
+df_inset <- df_matrix[df_matrix$facet=="manuf.",]
+plot_inset <- ggplot(df_inset, aes(x = Concept, y = Impact, fill = Margin)) +
   geom_bar(stat = "identity", width = 0.9, position = "stack") +
   export_theme +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5))

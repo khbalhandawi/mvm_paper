@@ -1,0 +1,14 @@
+linters: linters_with_defaults(
+    line_length_linter(200), 
+    commented_code_linter = NULL,
+    T_and_F_symbol_linter = NULL,
+    infix_spaces_linter = NULL,
+    object_name_linter = NULL,
+    commas_linter = NULL
+  )
+exclusions: list(
+    "inst/doc/creating_linters.R" = 1, 
+    "inst/example/bad.R", 
+    "tests/testthat/exclusions-test"
+  )
+encoding: "UTF-8"

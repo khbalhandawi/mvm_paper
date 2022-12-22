@@ -21,7 +21,7 @@ hex_codes1 <- scales::hue_pal()(3) # Identify hex codes
 
 # get legend function
 library(gridExtra)
-get_legend<-function(myggplot){
+get_legend<-function(myggplot) {
   tmp <- ggplot_gtable(ggplot_build(myggplot))
   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
   legend <- tmp$grobs[[leg]]
@@ -34,15 +34,15 @@ export_theme <- theme_tufte() +
     axis.text.y=element_text(size=14,family=""),
     axis.title.x=element_text(size=14,family="",vjust=-1),
     axis.title.y=element_text(size=14,family=""),
-    
+
     ## Axis lines
     axis.line = element_line(colour="black"),
     axis.ticks = element_line(),
-    
+
     ## Title
     plot.title = element_text(family="",size=10,face="bold",hjust=0.5),
     plot.tag = element_text(family="",size=10,face="bold"),
-    
+
     ## Legends
     legend.title=element_text(size=16,family="",face="italic"),
     legend.text=element_text(size=15,family=""),
