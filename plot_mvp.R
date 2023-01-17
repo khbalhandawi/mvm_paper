@@ -21,6 +21,9 @@ main_wd <- paste0(HOME_WD,"/mvm_paper/")
 # For fea example
 data_dir <- paste0("data/strut_fea/")
 img_dir <- paste0("images/strut_fea/")
+dir.create(file.path(img_dir), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(img_dir,"C1"), showWarnings = FALSE, recursive = TRUE)
+
 legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
 legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
 palette <- c("#F8766D","#00BA38","#619CFF","#000000")
@@ -49,9 +52,6 @@ source(paste0(main_wd,"/plot_funcs.R"))
 export_theme <- export_theme + theme(plot.margin=unit(c(0,0,0,0),units="cm"),
                                      plot.tag=element_text(size=14,face="bold"),
                                      plot.tag.position = c(0.15, 0.95))
-########################################
-## 1. get max min limits and 45 deg line
-########################################
 
 #######################################
 # Scaling function
@@ -66,6 +66,66 @@ scaling <- function(x, lb, ub, operation) {
     return(x_out)
   }
 }
+
+#######################################
+# Get nearest point and length
+nearest <- function(p1, p2, s) {
+  x1 <- p1[1]
+  y1 <- p1[2]
+  x2 <- p2[1]
+  y2 <- p2[2]
+  xs <- s[1]
+  ys <- s[2]
+  dx <- x2 - x1
+  dy <- y2 - y1
+  n <- (p2 - p1) / norm((p2 - p1),"2")
+  n_o <- array(c(-n[2], n[1]))
+  qp <- s - p1
+  d <- (qp %*% n_o)[1] # distance
+  np <- s - (d * n_o) # nearest point
+  # det <- dx * dx + dy * dy
+  # a <- (dy * (ys - y1) + dx * (xs - x1)) / det
+  # # calculate distance
+  # d <- (crossprod(p2 - p1, s - p1)) / norm((p2 - p1),"2")
+  # np <- array(c(x1 + a * dx, y1 + a * dy))
+  return(list(np,d))
+}
+
+#######################################
+# Get shortest path data frame
+get_shortest_df <- function(df_mean) {
+  n_nodes <- length(unique(df_mean$node))
+  mean_nodes <- aggregate(df_mean[, 3:4], list(df_mean$node), mean)
+  mean_nodes_n <- aggregate(df_mean[, 5:6], list(df_mean$node), mean)
+
+  datalist <- list()
+  for (node_i in 1:n_nodes) {
+    s <- array(c(mean_nodes[node_i,2],mean_nodes[node_i,3]))
+    nearest_data <- nearest(x0,x1,s)
+
+    s_n <- array(c(mean_nodes_n[node_i,2],mean_nodes_n[node_i,3]))
+    nearest_data_n <- nearest(x0_n,x1_n,s_n)
+
+    dat <- data.frame(X = c(s[1],unlist(nearest_data[1])[1]),
+                      Y = c(s[2],unlist(nearest_data[1])[2]),
+                      X_n = c(s_n[1],unlist(nearest_data_n[1])[1]),
+                      Y_n = c(s_n[2],unlist(nearest_data_n[1])[2]),
+                      dist = as.numeric(nearest_data[2]),
+                      dist_n = as.numeric(nearest_data_n[2]),
+                      node = node_i)
+
+    datalist[[node_i]] <- dat # add it to your list
+  }
+
+  shortest_line <- do.call(rbind, datalist) %>%
+    mutate(node = as.factor(node)) # convert to categorical type
+
+  return(shortest_line)
+}
+
+########################################
+## 1. get max min limits and 45 deg line
+########################################
 
 data_wd_1 <- paste0(main_wd,data_dir,"C1/")
 data_wd_2 <- paste0(main_wd,data_dir,"C2/")
@@ -120,63 +180,6 @@ ref_line_data <- data.frame(X = c(i_min, i_max),
                             neutral = c(a_min, a_max),
                             X_n = c(0, 1),
                             neutral_n = c(0, 1))
-
-
-#######################################
-# Get nearest point and length
-nearest <- function(p1, p2, s) {
-  x1 <- p1[1]
-  y1 <- p1[2]
-  x2 <- p2[1]
-  y2 <- p2[2]
-  xs <- s[1]
-  ys <- s[2]
-  dx <- x2 - x1
-  dy <- y2 - y1
-  n <- (p2 - p1) / norm((p2 - p1),"2")
-  n_o <- array(c(-n[2], n[1]))
-  qp <- s - p1
-  d <- (qp %*% n_o)[1] # distance
-  np <- s - (d * n_o) # nearest point
-  # det <- dx * dx + dy * dy
-  # a <- (dy * (ys - y1) + dx * (xs - x1)) / det
-  # # calculate distance
-  # d <- (crossprod(p2 - p1, s - p1)) / norm((p2 - p1),"2")
-  # np <- array(c(x1 + a * dx, y1 + a * dy))
-  return(list(np,d))
-}
-
-#######################################
-# Get shortest path data frame
-get_shortest_df <- function(df_mean) {
-  n_nodes <- length(unique(df_mean$node))
-  mean_nodes <- aggregate(df_mean[, 3:4], list(df_mean$node), mean)
-  mean_nodes_n <- aggregate(df_mean[, 5:6], list(df_mean$node), mean)
-
-  datalist <- list()
-  for (node_i in 1:n_nodes) {
-    s <- array(c(mean_nodes[node_i,2],mean_nodes[node_i,3]))
-    nearest_data <- nearest(x0,x1,s)
-
-    s_n <- array(c(mean_nodes_n[node_i,2],mean_nodes_n[node_i,3]))
-    nearest_data_n <- nearest(x0_n,x1_n,s_n)
-
-    dat <- data.frame(X = c(s[1],unlist(nearest_data[1])[1]),
-                      Y = c(s[2],unlist(nearest_data[1])[2]),
-                      X_n = c(s_n[1],unlist(nearest_data_n[1])[1]),
-                      Y_n = c(s_n[2],unlist(nearest_data_n[1])[2]),
-                      dist = as.numeric(nearest_data[2]),
-                      dist_n = as.numeric(nearest_data_n[2]),
-                      node = node_i)
-
-    datalist[[node_i]] <- dat # add it to your list
-  }
-
-  shortest_line <- do.call(rbind, datalist) %>%
-    mutate(node <- as.factor(node)) # convert to categorical type
-
-  return(shortest_line)
-}
 
 ########################################
 ## 2. Scatter plot of three concepts
@@ -265,6 +268,9 @@ p4_label <- textGrob(substitute(paste("(d) ",theta==th*degree, h==height," mm"),
 p_concept <- grid.arrange(ylab, legend, p1, p2, p3, p4, xlab, ncol=3, nrow=4,
              layout_matrix = rbind(c(1,2,2), c(1,3,4), c(1,5,6), c(1,7,7)),
              widths = c(0.2, 2.7, 2.7), heights = c(0.2, 2.5, 2.5, 0.2))
+
+# Aggregate plots
+
 
 ########################################
 ## 3. Export distance plots
@@ -394,6 +400,9 @@ p4_label <- textGrob(substitute(paste("(d) ",theta==th*degree, h==height," mm"),
 p_dist <- grid.arrange(ylab, legend, p1_dist, p2_dist, p3_dist, p4_dist, xlab, ncol=3, nrow=4,
                           layout_matrix = rbind(c(1,2,2), c(1,3,4), c(1,5,6), c(1,7,7)),
                           widths = c(0.2, 2.7, 2.7), heights = c(0.2, 2.5, 2.5, 0.2))
+
+# Aggregate plots
+
 
 ########################################
 ## 4. Export comparison plots
