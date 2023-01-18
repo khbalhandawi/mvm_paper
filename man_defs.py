@@ -1,16 +1,35 @@
 
 import numpy as np
 import pandas as pd
+import os
 
 from mvm import Design
 from mvm import FixedParam, DesignParam, InputSpec, Behaviour, Performance, MarginNode, MarginNetwork, Decision
 from mvm import GaussianFunc, UniformFunc
 
 
-def get_man_combined():
-    n_threads = 1
-    n_materials = 15
-    widths = list(range(60,120+5,5))
+def get_man_combined(height=15.0, lean=0.0, materials=None, widths=list(range(60,120+10,10)), 
+    train_surrogate=True, man_folder=None, name='strut_comb', overwrite=True, num_threads=1):
+
+    # default material selection
+    if materials == None:
+        materials = {
+            'Steel'   : {
+                'sigma_y' : 250, # MPa
+                'rho' : 10.34e-06, # kg/mm3
+                'cost' : 0.09478261, # USD/kg
+                },
+            'Inconel'  : {
+                'sigma_y' : 460,  # MPa
+                'rho' : 8.19e-06,  # kg/mm3
+                'cost' : 0.46,  # USD/kg
+                },
+            'Titanium'  : {
+                'sigma_y' : 828, # MPa
+                'rho' : 4.43e-06, # kg/mm3
+                'cost' : 1.10 # USD/kg
+                },
+        }
 
     # define fixed parameters
     i1 = FixedParam(7.17E-06, 'I1', description='Coefficient of thermal expansion', symbol='alpha')
@@ -23,8 +42,8 @@ def get_man_combined():
     fixed_params = [i1, i2, i3, i4, i5, i6,]
 
     # define design parameters
-    d1 = DesignParam(15.0, 'D1', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
-    d2 = DesignParam(0.0, 'D2', universe=[0.0, 50.0], variable_type='FLOAT', description='lean angle', symbol='theta')
+    d1 = DesignParam(height, 'D1', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
+    d2 = DesignParam(lean, 'D2', universe=[0.0, 50.0], variable_type='FLOAT', description='lean angle', symbol='theta')
     design_params = [d1, d2]
 
     # T1,T2 distribution (Uniform)
@@ -93,7 +112,7 @@ def get_man_combined():
 
     # this is the stress model
     class B3(Behaviour):
-        def __call__(self, w, T1, T2, h, theta, alpha, E, r1, r2, Ts):
+        def __call__(self, T1, T2, h, theta, alpha, E, r1, r2, Ts):
             coeffs = [0.95, 1.05, 0.97]
             coeffs = 3 * [1.0, ]
             n_struts_nominal = 12
@@ -118,27 +137,7 @@ def get_man_combined():
     class B4(Behaviour):
         def __call__(self, material):
 
-            material_dict = {
-                'Inconel'   : {
-                    'sigma_y' : 92, # MPa
-                    'rho' : 11.95e-06, # kg/mm3
-                    'cost' : 0.1 # USD/kg
-                    },
-                'Titanium'  : {
-                    'sigma_y' : 828, # MPa
-                    'rho' : 4.43e-06, # kg/mm3
-                    'cost' : 1.10 # USD/kg
-                    },
-            }
-
-            # generate 10 materials by linearly interpolating
-            df = pd.DataFrame(columns=material_dict['Inconel'].keys(), index=range(15), dtype=float)
-            df.iloc[0] = material_dict['Inconel']
-            df.iloc[-1] = material_dict['Titanium']
-            df.interpolate(method='linear',axis=0,inplace=True)
-            material_dict_interp = df.transpose().to_dict()
-
-            chosen_mat = material_dict_interp[material]
+            chosen_mat = materials[material]
 
             self.intermediate = [chosen_mat['rho'], chosen_mat['cost']]
             self.decided_value = chosen_mat['sigma_y']
@@ -155,8 +154,12 @@ def get_man_combined():
             from fem_scirpts.nx_trs_script import run_nx_simulation
             from fem_scirpts.plot_results import postprocess_vtk, plotmesh, plotresults
 
-            _, vtk_filename, success = run_nx_simulation(w,h,theta,n_struts,r_hub=r1,r_shroud=r2,
-                youngs_modulus=E,bearing_x=BX,bearing_y=BY,pid=id)
+            try:
+                _, vtk_filename, success = run_nx_simulation(w,h,theta,n_struts,r_hub=r1,r_shroud=r2,
+                    youngs_modulus=E,bearing_x=BX,bearing_y=BY,pid=id)
+            except:
+                vtk_filename = None
+                success = False
 
             # base_path = os.getcwd() # Working directory
             # folder = 'Nastran_output'
@@ -200,7 +203,7 @@ def get_man_combined():
                         direction='must_not_exceed', decided_value_model=b2, n_nodes=1,
                         description='the vane width selection')
 
-    decision_2 = Decision(universe=list(range(n_materials)), variable_type='ENUM', key='decision_2',
+    decision_2 = Decision(universe=list(materials.keys()), variable_type='ENUM', key='decision_2',
                         direction='must_not_exceed', decided_value_model=b4, n_nodes=1, 
                         description='The type of material')
 
@@ -235,7 +238,7 @@ def get_man_combined():
             s3.random()
             s4.random()
 
-        def forward(self, num_threads=1,recalculate_decisions=False,override_decisions=False,outputs=['dv','dv','dv']):
+        def forward(self,num_threads=1,recalculate_decisions=False,allocate_margin=False,strategy='min_excess',outputs=['dv','dv','dv']):
 
             # retrieve MAN components
             d1 = self.design_params[0]  # h
@@ -283,14 +286,14 @@ def get_man_combined():
                 self.fixed_params[3].value, # r2
                 self.fixed_params[4].value, # K
             ]
-            decision_1(b1.threshold, override_decisions, recalculate_decisions, num_threads, outputs[0],*args)
+            decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
-            # w, T1, T2, h, theta, alpha, E, r1, r2, Ts)
-            b3(b2.inverted, s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
+            # T1, T2, h, theta, alpha, E, r1, r2, Ts)
+            b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
             # Execute decision node for material and translate to yield stress: material
-            decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
+            decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b4.inv_call(decision_2.output_value)
             
@@ -308,14 +311,14 @@ def get_man_combined():
             #     'id' : self.key
             # }
             # # Execute decision node for struts: n_struts, w, h, theta, BX, BY, E, r1, r2
-            # decision_3(decision_2.output_value, override_decisions, recalculate_decisions, num_threads, outputs[2], *args, **kwargs)
+            # decision_3(decision_2.output_value, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[2], *args, **kwargs)
             # # invert decided value: decided_value, w, h, theta, BX, BY, E, r1, r2
             # b5.inv_call(decision_3.output_value, b2.inverted, d1.value, d2.value, s3.value, s4.value, i2.value, i3.value, i4.value)
 
             # calculate n_struts sigma_y, w, h, theta, BX, BY, E, r1, r2
             b5.inv_call(decision_2.output_value, b2.inverted, d1.value, d2.value, s3.value, s4.value, i2.value, i3.value, i4.value)
             # Execute decision node for struts: n_struts, w, h, theta, BX, BY, E, r1, r2
-            decision_3(b5.inverted, override_decisions, recalculate_decisions, num_threads, outputs[2])
+            decision_3(b5.inverted, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[2])
 
             # Compute excesses
             e1(b1.threshold, decision_1.decided_value)
@@ -330,11 +333,69 @@ def get_man_combined():
 
 
     man = MAN(design_params, input_specs, fixed_params,
-            behaviours, decisions, margin_nodes, performances, 'MAN_1')
+            behaviours, decisions, margin_nodes, performances, name)
+
+    if man_folder is None:
+        man_folder = '/'
+
+    if train_surrogate:
+        # train material surrogate
+        variable_dict = {
+            'material' : {'type' : 'ENUM', 'limits' : decision_2.universe},
+        }
+        b4.train_surrogate(variable_dict,n_samples=50,sm_type='KRG')
+        b4.train_inverse(sm_type='LS')
+
+        # Train surrogate for bearing load case
+        variable_dict = {
+            'n_struts' : {'type' : 'INT', 'limits' : [decision_3.universe[0],decision_3.universe[-1]]},
+            'w' : {'type' : 'FLOAT', 'limits' : [decision_1.universe[0],decision_1.universe[-1]]},
+            'h' : {'type' : 'FLOAT', 'limits' : d1.universe},
+            'theta' : {'type' : 'FLOAT', 'limits' : d2.universe},
+            'BX' : {'type' : 'FLOAT', 'limits' : s3.universe},
+            'BY' : {'type' : 'FLOAT', 'limits' : s4.universe},
+            'E' : {'type' : 'fixed', 'limits' : i2.value},
+            'r1' : {'type' : 'fixed', 'limits' : i3.value},
+            'r2' : {'type' : 'fixed', 'limits' : i4.value},
+        }
+        b5.train_surrogate(variable_dict,n_samples=1000,num_threads=num_threads)
+        man.save(name,folder=man_folder)
+        b5.train_inverse('n_struts',sm_type='LS', bandwidth=[1e-3])
+        man.save(name,folder=man_folder)
+    else:
+        # load just the behaviour models
+        b4.load(os.path.join(man_folder,name))
+        b5.load(os.path.join(man_folder,name))
+        b5.train_inverse('n_struts', sm_type='LS', bandwidth=[1e-3])
+    
+    if overwrite:
+        man.save(name,folder=man_folder)
 
     return man
 
-def get_man():
+def get_man(height=15.0, lean=0.0, materials=None, widths=list(range(60,120+5,10)), 
+    train_surrogate=True, man_folder=None, overwrite=True, name='strut_s', num_threads=1):
+
+    # default material selection
+    if materials == None:
+        materials = {
+            'Steel'   : {
+                'sigma_y' : 250, # MPa
+                'rho' : 10.34e-06, # kg/mm3
+                'cost' : 0.09478261, # USD/kg
+                },
+            'Inconel'  : {
+                'sigma_y' : 460,  # MPa
+                'rho' : 8.19e-06,  # kg/mm3
+                'cost' : 0.46,  # USD/kg
+                },
+            'Titanium'  : {
+                'sigma_y' : 828, # MPa
+                'rho' : 4.43e-06, # kg/mm3
+                'cost' : 1.10 # USD/kg
+                },
+        } 
+
     # define fixed parameters
     i1 = FixedParam(7.17E-06, 'I1', description='Coefficient of thermal expansion', symbol='alpha')
     i2 = FixedParam(156.3E3, 'I2', description='Youngs modulus', symbol='E')
@@ -346,8 +407,8 @@ def get_man():
     fixed_params = [i1, i2, i3, i4, i5, i6]
 
     # define design parameters
-    d1 = DesignParam(15.0, 'D2', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
-    d2 = DesignParam(0.0, 'D3', universe=[10.0, 50.0], variable_type='FLOAT', description='lean angle', symbol='theta')
+    d1 = DesignParam(height, 'D2', universe=[5.0, 20.0], variable_type='FLOAT', description='vane height', symbol='h')
+    d2 = DesignParam(lean, 'D3', universe=[10.0, 50.0], variable_type='FLOAT', description='lean angle', symbol='theta')
     design_params = [d1, d2]
 
     # # T1,T2 distribution (Gaussian)
@@ -423,27 +484,7 @@ def get_man():
     class B4(Behaviour):
         def __call__(self, material):
 
-            material_dict = {
-                'Inconel'   : {
-                    'sigma_y' : 92, # MPa
-                    'rho' : 11.95e-06, # kg/mm3
-                    'cost' : 0.1 # USD/kg
-                    },
-                'Titanium'  : {
-                    'sigma_y' : 828, # MPa
-                    'rho' : 4.43e-06, # kg/mm3
-                    'cost' : 1.10 # USD/kg
-                    },
-            }
-
-            # generate 10 materials by linearly interpolating
-            df = pd.DataFrame(columns=material_dict['Inconel'].keys(), index=range(15), dtype=float)
-            df.iloc[0] = material_dict['Inconel']
-            df.iloc[-1] = material_dict['Titanium']
-            df.interpolate(method='linear',axis=0,inplace=True)
-            material_dict_interp = df.transpose().to_dict()
-
-            chosen_mat = material_dict_interp[material]
+            chosen_mat = materials[material]
 
             self.intermediate = [chosen_mat['rho'], chosen_mat['cost']]
             self.decided_value = chosen_mat['sigma_y']
@@ -468,11 +509,11 @@ def get_man():
 
 
     # Define decision nodes and a model to convert to decided values
-    decision_1 = Decision(universe=list(range(60,120+5,10)), variable_type='ENUM', key='decision_1',
+    decision_1 = Decision(universe=widths, variable_type='ENUM', key='decision_1',
                         direction='must_not_exceed', decided_value_model=b2, n_nodes=1,
                         description='the vane width selection')
 
-    decision_2 = Decision(universe=list(range(15)), variable_type='ENUM', key='decision_2',
+    decision_2 = Decision(universe=list(materials.keys()), variable_type='ENUM', key='decision_2',
                         direction='must_not_exceed', decided_value_model=b4, n_nodes=1, 
                         description='The type of material')
 
@@ -498,7 +539,7 @@ def get_man():
             s1.random()
             s2.random()
 
-        def forward(self, num_threads=1, recalculate_decisions=False, override_decisions=False,outputs=['dv','dv','dv']):
+        def forward(self,num_threads=1,recalculate_decisions=False,allocate_margin=False,strategy='min_excess',outputs=['dv','dv','dv']):
             # retrieve MAN components
             d1 = self.design_params[0]  # h
             d2 = self.design_params[1]  # theta
@@ -540,14 +581,14 @@ def get_man():
                 self.fixed_params[3].value, # r2
                 self.fixed_params[4].value, # K
             ]
-            decision_1(b1.threshold, override_decisions, recalculate_decisions, num_threads, outputs[0],*args)
+            decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
             # T1, T2, h, theta, alpha, E, r1, r2, Ts)
             b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
             # Execute decision node for material and translate to yield stress: material
-            decision_2(b3.threshold, override_decisions, recalculate_decisions, num_threads, outputs[1])
+            decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
             # invert decided value: decided_value, h, theta, E, r1, r2, K
             b4.inv_call(decision_2.output_value)
 
@@ -563,6 +604,22 @@ def get_man():
 
 
     man = MAN(design_params, input_specs, fixed_params,
-            behaviours, decisions, margin_nodes, performances, 'MAN_1')
+            behaviours, decisions, margin_nodes, performances, name)
+
+    if train_surrogate:
+        # train material surrogate
+        variable_dict = {
+            'material' : {'type' : 'ENUM', 'limits' : decision_2.universe},
+        }
+        b4.train_surrogate(variable_dict,n_samples=50,sm_type='KRG')
+        b4.train_inverse(sm_type='LS')
+    else:
+        # load just the behaviour models
+        b4.load(os.path.join(man_folder,name))
+
+
+    # Create surrogate model for estimating threshold performance
+    if overwrite:
+        man.save(name,folder=man_folder)
 
     return man

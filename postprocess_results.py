@@ -19,7 +19,33 @@ from man_defs import get_man_combined, get_man
 # # folder = os.path.join('data','strut','C3'); lean = 0.0; height = 20.0
 # # folder = os.path.join('data','strut','C4'); lean = 30.0; height = 20.0
 
-# man = get_man()
+# # off-the shelf parts
+# widths = list(range(60,120+10,10))
+# # create material dictionary
+# n_materials = 15
+
+# material_dict_user = {
+#     'start'   : {
+#         'sigma_y' : 92, # MPa
+#         'rho' : 11.95e-06, # kg/mm3
+#         'cost' : 0.1 # USD/kg
+#         },
+#     'end'  : {
+#         'sigma_y' : 828, # MPa
+#         'rho' : 4.43e-06, # kg/mm3
+#         'cost' : 1.10 # USD/kg
+#         },
+# }
+# # generate 10 materials by linearly interpolating
+# df = pd.DataFrame(columns=material_dict_user['start'].keys(), index=range(n_materials), dtype=float)
+# df.iloc[0] = material_dict_user['start']
+# df.iloc[-1] = material_dict_user['end']
+# df.interpolate(method='linear',axis=0,inplace=True)
+# material_dict = df.transpose().to_dict()
+
+# man = get_man(height=height,lean=lean,materials=material_dict,widths=widths,
+#     train_surrogate=False,man_folder=folder,overwrite=False,name='strut_s',num_threads=1)
+
 # man_name = 'strut_s'
 # man.load(man_name,folder=folder)
 
@@ -27,12 +53,38 @@ from man_defs import get_man_combined, get_man
 #                       FEA PROBLEM                       #
 ###########################################################
 # get man object for the fea problem and load it
-folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
+# folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
 # folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
-# folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 20.0
-# folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 20.0
+# folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 17.0
+folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 17.0
 
-man = get_man_combined()
+# off-the shelf parts
+widths = list(range(60,120+10,10))
+# create material dictionary
+n_materials = 15
+
+material_dict_user = {
+    'start'   : {
+        'sigma_y' : 92, # MPa
+        'rho' : 11.95e-06, # kg/mm3
+        'cost' : 0.1 # USD/kg
+        },
+    'end'  : {
+        'sigma_y' : 828, # MPa
+        'rho' : 4.43e-06, # kg/mm3
+        'cost' : 1.10 # USD/kg
+        },
+}
+# generate 10 materials by linearly interpolating
+df = pd.DataFrame(columns=material_dict_user['start'].keys(), index=range(n_materials), dtype=float)
+df.iloc[0] = material_dict_user['start']
+df.iloc[-1] = material_dict_user['end']
+df.interpolate(method='linear',axis=0,inplace=True)
+material_dict = df.transpose().to_dict()
+
+man = get_man_combined(height=height,lean=lean,materials=material_dict,widths=widths,
+    train_surrogate=False,man_folder=folder,overwrite=False,name='strut_comb',num_threads=1)
+
 man_name = 'strut_comb'
 man.load(man_name,folder=folder)
 
@@ -66,7 +118,7 @@ for i in range(n_spec):
 df_matrix = pd.DataFrame(all_matrix, columns=columns)
 df_matrix = df_matrix.astype({'node':'int'})
 
-sns.pairplot(df_matrix, hue="node")
+# sns.pairplot(df_matrix, hue="node")
 df_matrix.to_csv(os.path.join(folder,'df_matrix.csv'))
 
 ###########################################################
@@ -87,8 +139,8 @@ mean_matrix = np.hstack((mean_matrix,y))
 df_mean = pd.DataFrame(mean_matrix, columns=columns)
 df_mean = df_mean.astype({'node':'int'})
 
-sns.jointplot(data=df_mean, x="Impact", 
-    y="Absorption", hue="node")
+# sns.jointplot(data=df_mean, x="Impact", 
+    # y="Absorption", hue="node")
 
 df_mean.to_csv(os.path.join(folder,'df_mean.csv'))
 

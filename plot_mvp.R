@@ -5,9 +5,9 @@
 ## 1. Headers
 ########################################
 library(ggthemes)
-library(GGally)
+# library(GGally)
 library(ggpubr)
-library(patchwork)
+# library(patchwork)
 library(tibble)
 library(gridExtra)
 library(grid)

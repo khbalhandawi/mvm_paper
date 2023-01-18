@@ -19,7 +19,40 @@ python -m venv .env
 pip install -r requirements.txt
 ```
 
-run the examples normally using python
+run the examples normally using python.
+
+## List of python examples
+
+Here is a brief description of what each python script does:
+
+|**File**                                                   |  **Description** |
+|-----------------------------------------------------------|------------------|
+|[man_defs.py](man_defs.py)|Includes the structure of the margin analysis network (MAN) for the FEA strut example (`get_man_combined` and the analytical strut example `get_man`.|
+|[strut_design_combined.py](strut_design_combined.py)|Performs margin value analyis (MVM) on the FEA strut example.|
+|[strut_design_manufacturability.py](strut_design_manufacturability.py)|Performs margin value analyis (MVM) on the analytical strut example. |
+|[postprocess_DOE.py](postprocess_DOE.py)|Performs a full-factorial DOE on all the design parameters of the strut FEA problem and processes results into dataframes and a parallel coordinates plot (PCP).|
+|[postprocess_DOE_min_excess.py](postprocess_DOE_min_excess.py)|Performs a full-factorial DOE on the *input* design parameters of the strut FEA problem and processes results into dataframes and a parallel coordinates plot (PCP).|
+|[postprocess_results.py](postprocess_results.py)|Postprocesses the results of a stochastic MVM run into scatter plots, marginal distributions and scatter matrices.|
+
+## Installing R libraries and dependancies
+
+To reproduce the plots shown in the paper you will need R. With the `renv` packages installed use the following commands in an R console to download and install all the dependancies you need:
+
+```
+library(renv)
+renv::restore()
+```
+
+## List of R scripts
+
+You may then run all the R files to produce the plots. Here is a description of their content
+
+|**File**                                                   |  **Description** |  **Depends on** |
+|-----------------------------------------------------------|------------------|-----------------|
+|[plot_funcs.R](plot_funcs.R)|Plot theme related functions and definitions. Executed at the beginning of other scripts.|~|
+|[plot_mvp.R](plot_mvp.R)|Plots the margin value map (MVP) of various runs and superimposes them.|[strut_design_combined.py](strut_design_combined.py)|
+|[plot_scatter_matrix.R](plot_scatter_matrix.R)|Plots a scatter matrix of a particular run.|[strut_design_combined.py](strut_design_combined.py)|
+|[visualize_impact.R](visualize_impact.R)|Plots a bar chart of the impact on performance for the manufacturability example.|[strut_design_manufacturability.py](strut_design_manufacturability.py)|
 
 ## For development
 
