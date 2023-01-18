@@ -270,7 +270,25 @@ p_concept <- grid.arrange(ylab, legend, p1, p2, p3, p4, xlab, ncol=3, nrow=4,
              widths = c(0.2, 2.7, 2.7), heights = c(0.2, 2.5, 2.5, 0.2))
 
 # Aggregate plots
+df_mean_1 <- df_mean_1 %>% mutate(concept = "A")
+df_mean_2 <- df_mean_1 %>% mutate(concept = "B")
+df_mean_3 <- df_mean_1 %>% mutate(concept = "C")
+df_mean_4 <- df_mean_1 %>% mutate(concept = "D")
+df_mean_agg <- do.call("rbind", list(df_mean_1,df_mean_2,df_mean_3,df_mean_4)) %>%
+  mutate(concept = as.factor(concept))
 
+p_agg <- ggplot(df_mean_agg, aes(x = Impact_n, y = Absorption_n, color = node)) +
+  geom_line(data = ref_line_data, aes(x = X_n, y = neutral_n, color = "neutral line"), linetype="dashed") +
+  geom_point(aes(color = node), size = 1.5) +
+  # geom_point(shape = 1, color = "black", size = 2, stroke = 0.1, alpha = 0.1) +
+  scale_y_continuous(limits=c(0,1)) +
+  scale_x_continuous(limits=c(0,1)) +
+  scale_colour_manual(values=palette) +
+  labs(color = "margin node\n") +
+  guides(colour = guide_legend(override.aes = legend_aes)) +
+  theme_pubr() +
+  export_theme
+p_agg
 
 ########################################
 ## 3. Export distance plots
