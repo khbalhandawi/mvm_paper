@@ -14,7 +14,7 @@ library(extrafont)
 loadfonts(device = "pdf")
 
 # get default color palette
-# library(scales)
+library(scales)
 hex_codes1 <- scales::hue_pal()(3) # Identify hex codes
 # "#F8766D" "#7CAE00" "#00BFC4" "#C77CFF"
 # "#F8766D" "#00BA38" "#619CFF" "#C77CFF" (pastel)
@@ -53,3 +53,26 @@ export_theme <- theme_tufte() +
     #strip.background=element_rect(fill="#f0f0f0")
     strip.background=element_blank(),
   )
+
+# create color palette for design concepts
+n_concepts <- c(4, 4, 4)
+node <- c(1,2,3)
+df_concepts <- data.frame(node, n_concepts)
+
+colors_list <- list()
+colors_vector <- c()
+
+# palette <- scales::hue_pal(h = c(0, 360))(nrow(df_concepts))
+palette <- c("#F8766D","#00BA38","#619CFF")
+# palette <- c("#F8766D","#00BFC4") for simple example
+for (i in 1:nrow(df_concepts)) {
+  alphas <- seq(1.0, 0.2, length.out = df_concepts$n_concepts[i])
+  region_c <- c()
+  for (j in 1:df_concepts$n_concepts[i]) {
+    sub_color <- adjustcolor(palette[i], alpha.f = alphas[j])
+    region_c <- append(region_c,sub_color)
+  }
+  colors_list <- append(colors,list(region_c))
+  colors_vector <- append(colors_vector,region_c)
+  # scales::show_col(region_c)
+}

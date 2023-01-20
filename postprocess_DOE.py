@@ -56,11 +56,13 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
 if __name__ == "__main__":
 
     # get the man object for the fea problem and load it
-    base_folder = os.path.join('data','strut_fea','opt_manual_deterministic')
-    img_folder = os.path.join('images','strut_fea','opt_manual_deterministic')
-    # base_folder = os.path.join('data','strut_fea','opt_manual_stochastic')
-    # img_folder = os.path.join('images','strut_fea','opt_manual_stochastic')
-    
+    # base_folder = os.path.join('data','strut_fea','opt_manual_deterministic')
+    # img_folder = os.path.join('images','strut_fea','opt_manual_deterministic')
+    # n_epochs = 1
+    base_folder = os.path.join('data','strut_fea','opt_manual_stochastic')
+    img_folder = os.path.join('images','strut_fea','opt_manual_stochastic')
+    n_epochs = 100
+
     check_folder(img_folder)
 
     # off-the shelf parts
@@ -122,7 +124,6 @@ if __name__ == "__main__":
     design_doe = list(itertools.product(*universe))
     # design_doe = [(14, 10, 90, 'Inconel', 10),] # try a unique design
     n_designs = len(design_doe)
-    n_epochs = 1
 
     #---------------------------------------------------
     # Evaluate all the different designs
@@ -353,6 +354,7 @@ if __name__ == "__main__":
     # export data
 
     ## doe
+    df_export_real = df.dropna().drop(['dummy'],axis=1) # export without NaNs
     df_export = df.drop(['material'],axis=1)
     df_export = df_export.rename(columns={'dummy':'material'})
 
@@ -361,6 +363,7 @@ if __name__ == "__main__":
     df_export.insert(3, 'material', material)
     
     ## nodal
+    df_export_nodal_real = df_nodal.dropna().drop(['dummy'],axis=1) # export without NaNs
     df_export_nodal = df_nodal.drop(['material'],axis=1)
     df_export_nodal = df_export_nodal.rename(columns={'dummy':'material'})
 
@@ -369,5 +372,7 @@ if __name__ == "__main__":
     df_export_nodal.insert(3, 'material', material)
 
     # export to csv
+    df_export_real.to_csv(os.path.join(base_folder,'doe_data_real.csv'))
+    df_export_nodal_real.to_csv(os.path.join(base_folder,'nodal_data_real.csv'))
     df_export.to_csv(os.path.join(base_folder,'doe_data.csv'))
     df_export_nodal.to_csv(os.path.join(base_folder,'nodal_data.csv'))

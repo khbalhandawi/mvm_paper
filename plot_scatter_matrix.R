@@ -57,12 +57,12 @@ export_theme <- theme_tufte() +
 # https://stackoverflow.com/a/34988306
 my_dens <- function(data, mapping, ...) {
   ggplot(data = data, mapping=mapping) +
-    geom_density(...,alpha = 0.5, color = "black")
+  geom_density(...,alpha = 0.5, color = "black")
 }
 
 my_hist <- function(data, mapping, ...) {
   ggplot(data = data, mapping=mapping) +
-    geom_histogram(...,alpha = 0.5, color = "black", size=0.1)
+  geom_histogram(...,alpha = 0.5, color = "black", size=0.1)
 }
 
 # Defines function to color according to correlation
@@ -96,7 +96,10 @@ p_pairs <- ggpairs(df_matrix, mapping = ggplot2::aes(colour=node, fill = node),
                    upper = list(continuous = GGally::wrap(ggally_cor, stars = F)),
                    # upper = list(continuous = wrap(cor_func,method = "spearman", symbol = expression("\u03C1 ="))),
                    lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
-                   legend=1) +
+                   legend=1,
+                  #  columnLabels = c(TeX("$W$"),TeX("$c_\text{raw}$"),TeX("$T_1$"),TeX("$T_2$"),TeX("$B_x$"),TeX("$B_y$")),
+                  #  labeller = label_parsed
+                  ) +
   labs(fill = "margin node") +
   export_theme +
   theme(legend.position = "bottom")
