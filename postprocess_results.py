@@ -53,10 +53,10 @@ from man_defs import get_man_combined, get_man
 #                       FEA PROBLEM                       #
 ###########################################################
 # get man object for the fea problem and load it
-# folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
+folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
 # folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
 # folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 17.0
-folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 17.0
+# folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 17.0
 
 # off-the shelf parts
 widths = list(range(60,120+10,10))
@@ -123,7 +123,6 @@ df_matrix.to_csv(os.path.join(folder,'df_matrix.csv'))
 
 ###########################################################
 # create a dataframe of average impact and absorption
-columns = ['node','Impact','Absorption']
 
 # Extract x and y
 x = np.nanmean(I,axis=1).ravel().reshape(-1,1) # average along performance parameters (assumes equal weighting)
@@ -136,6 +135,7 @@ for i in range(n_nodes):
 mean_matrix = np.hstack((mean_matrix,x))
 mean_matrix = np.hstack((mean_matrix,y))
 
+columns = ['node','Impact','Absorption']
 df_mean = pd.DataFrame(mean_matrix, columns=columns)
 df_mean = df_mean.astype({'node':'int'})
 
@@ -143,6 +143,38 @@ df_mean = df_mean.astype({'node':'int'})
     # y="Absorption", hue="node")
 
 df_mean.to_csv(os.path.join(folder,'df_mean.csv'))
+
+# Total matrix generation
+columns = []
+total_matrix = np.empty((n_samples,0))
+
+for i in range(n_spec):
+    columns += ["S%i" %(i+1)]
+    col = man.input_specs[i].values[notnan].reshape(-1,1)
+    total_matrix = np.hstack((total_matrix,col))
+
+for i in range(n_nodes):
+    columns += ["D%i" %(i+1)]
+    col = man.decisions[i].selection_values.values[1:][notnan].reshape(-1,1)
+    total_matrix = np.hstack((total_matrix,col))
+
+for i in range(n_nodes):
+    columns += ["E%i" %(i+1)]
+    col = man.margin_nodes[i].excess.values[1:][notnan].reshape(-1,1)
+    total_matrix = np.hstack((total_matrix,col))
+
+for i in range(n_nodes):
+    columns += ["I%i" %(i+1)]
+    col = np.nanmean(I,axis=1)[i].reshape(-1,1)
+    total_matrix = np.hstack((total_matrix,col))
+
+for i in range(n_nodes):
+    columns += ["A%i" %(i+1)]
+    col = np.nanmean(A,axis=1)[i].reshape(-1,1)
+    total_matrix = np.hstack((total_matrix,col))
+
+df_total = pd.DataFrame(total_matrix, columns=columns)
+df_total.to_csv(os.path.join(folder,'df_total.csv'))
 
 ###########################################################
 # Scatter plot of average absorption and impact

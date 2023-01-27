@@ -5,7 +5,7 @@
 ## 1. Headers
 ########################################
 library(ggthemes)
-# library(GGally)
+library(latex2exp)
 library(ggpubr)
 library(patchwork)
 library(tibble)
@@ -147,10 +147,10 @@ df_mean_4 <- df_mean_4 %>%
   mutate(node=as.factor(node)) # convert to categorical type
 
 
-i_min <- min(c(df_mean_1$Impact,df_mean_2$Impact,df_mean_3$Impact))
-a_min <- min(c(df_mean_1$Absorption,df_mean_2$Absorption,df_mean_3$Absorption))
-i_max <- max(c(df_mean_1$Impact,df_mean_2$Impact,df_mean_3$Impact))
-a_max <- max(c(df_mean_1$Absorption,df_mean_2$Absorption,df_mean_3$Absorption))
+i_min <- min(c(df_mean_1$Impact,df_mean_2$Impact,df_mean_3$Impact,df_mean_4$Impact))
+a_min <- min(c(df_mean_1$Absorption,df_mean_2$Absorption,df_mean_3$Absorption,df_mean_4$Absorption))
+i_max <- max(c(df_mean_1$Impact,df_mean_2$Impact,df_mean_3$Impact,df_mean_4$Impact))
+a_max <- max(c(df_mean_1$Absorption,df_mean_2$Absorption,df_mean_3$Absorption,df_mean_4$Absorption))
 
 # # automatic limits
 # x0 <- array(c(i_min,a_min))
@@ -291,10 +291,13 @@ p_agg <- ggplot(df_mean_agg, aes(x=Impact_n, y=Absorption_n, color=node)) +
   geom_point(aes(color=node,shape=concept,size=concept,alpha=concept)) +
   scale_y_continuous(limits=c(0,1)) +
   scale_x_continuous(limits=c(0,1)) +
-  scale_colour_manual(values=c(palette)) +
+  scale_colour_manual(values=c(palette),
+                      labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$"))),
+                      guide = guide_legend(override.aes=aes(size=4.0))) +
   scale_shape_manual(values=shapes) +
   scale_size_manual(values=sizes) +
-  scale_alpha_manual(values=alphas) +
+  scale_alpha_manual(values=alphas,
+                     guide = guide_legend(override.aes=aes(alpha=NA, size=4.0))) +
   labs(color="margin node\n") +
   xlab("Impact on performance") +
   ylab("Change absorption capability") +
@@ -497,29 +500,44 @@ ggsave(paste0(main_wd,img_dir,"scatter_all.pdf"),
        plot=p_agg_combined,
        dpi=320, height=6.5, width=13)
 
+# report reliability
+reliability <- list(A=nrow(df_mean_1)/3000,B=nrow(df_mean_2)/3000,
+                    C=nrow(df_mean_3)/3000,D=nrow(df_mean_4)/3000)
+
 ########################################
 ## 5. mean plot of single concept
 ########################################
+i_min <- min(c(df_mean_1$Impact))
+a_min <- min(c(df_mean_1$Absorption))
+i_max <- max(c(df_mean_1$Impact))
+a_max <- max(c(df_mean_1$Absorption))
+
+ref_line_int <- data.frame(approx(ref_line_data$X, ref_line_data$neutral, n=100)) %>%
+  filter(x > i_min) %>%
+  filter(y > a_min)
 
 df_mean <- df_mean_1
 
 plot <- ggplot(df_mean, aes(x=Impact, y=Absorption, color=node)) +
-  geom_line(data=ref_line_data, aes(x=X, y=neutral), color="black", linetype="dashed") +
-    geom_point(aes(color=node), size=2.5) +
-    geom_point(shape=1, color="black", size=3, stroke=0.1, alpha=0.2) +
+  geom_line(data=ref_line_int, aes(x=x, y=y), color="black", linetype="dashed") +
+  geom_point(aes(color=node), size=2.5) +
+  geom_point(shape=1, color="black", size=3, stroke=0.1, alpha=0.2) +
   geom_rug() +
   labs(color="margin node\n") +
   scale_y_continuous(limits=c(a_min,a_max), name="Change absorption capability") +
   scale_x_continuous(limits=c(i_min,i_max), name="Impact on performance") +
+  scale_colour_discrete(guide = "none") +
   theme_pubr() +
   export_theme +
   theme(legend.position=c(0.15, 0.9),
         plot.margin=unit(c(-0.1,-0.1,0.0,0.0), "cm"))
+plot
 
 dens1 <- ggplot(df_mean, aes(x=Impact, fill=node)) +
   geom_density(alpha=0.4) +
   scale_x_continuous(limits=c(i_min,i_max), name="") +
-  labs(color="margin node\n") +
+  labs(fill="margin node\n") +
+  scale_fill_discrete(labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$")))) +
   theme_void() +
   theme(legend.position="none") +
   export_theme
@@ -528,6 +546,7 @@ dens2 <- ggplot(df_mean, aes(x=Absorption, fill=node)) +
   geom_density(alpha=0.4) +
   scale_x_continuous(limits=c(a_min,a_max), name="") +
   labs(color="margin node\n") +
+  scale_fill_discrete(guide = "none") +
   theme_void() +
   theme(legend.position="none") +
   coord_flip() +
@@ -550,13 +569,14 @@ p_mean <- dens1 + plot_spacer() + plot + dens2 +
 ########################################
 
 plot <- ggplot(df_mean, aes(x=Impact, y=Absorption, color=node)) +
-  geom_line(data=ref_line_data, aes(x=X, y=neutral), color="black", linetype="dashed") +
+  geom_line(data=ref_line_int, aes(x=x, y=y), color="black", linetype="dashed") +
   geom_point(aes(color=node), size=2.5) +
   geom_point(shape=1, color="black", size=3, stroke=0.1, alpha=0.2) +
   geom_rug() +
   labs(color="margin node\n") +
   scale_y_continuous(limits=c(a_min,a_max), name="Change absorption capability") +
   scale_x_continuous(limits=c(i_min,i_max), name="Impact on performance") +
+  scale_colour_discrete(labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$")))) +
   theme_pubr() +
   export_theme +
   theme(legend.position=c(0.15, 0.9),
@@ -565,8 +585,9 @@ plot <- ggplot(df_mean, aes(x=Impact, y=Absorption, color=node)) +
 cdf1 <- ggplot(df_mean, aes(x=Impact, fill=node, color=node)) +
   stat_ecdf(geom="step") +
   scale_x_continuous(limits=c(i_min,i_max), name="") +
-  ylab("Probability") +
+  ylab("probability") +
   labs(color="margin node\n") +
+  scale_colour_discrete(guide = "none") +
   theme_void() +
   theme(legend.position="none") +
   export_theme
@@ -587,8 +608,9 @@ ggplot(dat_ecdf[order(dat_ecdf$x),],aes(x,y)) +
 cdf2 <- ggplot(df_mean, aes(x=Absorption, fill=node, color=node)) +
   stat_ecdf(geom="step") +
   scale_x_continuous(limits=c(a_min,a_max), name="") +
-  ylab("Probability") +
+  ylab("probability") +
   labs(color="margin node\n") +
+  scale_colour_discrete(guide = "none") +
   scale_y_continuous(breaks=c(0.0,0.5,1.0)) +
   theme_void() +
   theme(legend.position="none") +
@@ -607,9 +629,117 @@ cdf2 <- cdf2 + theme(axis.ticks.y=element_blank(),
 p_cdf <- cdf1 + plot_spacer() + plot + cdf2 +
   plot_layout(ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4), guides="collect") & theme(legend.position="top")
 
+########################################
+## 6. CDF plot of single node
+########################################
+df_total <- read.csv(paste0(main_wd,data_dir,"C1/df_total.csv")) %>%
+  mutate(across(6:8, as.factor))
+df_total$decision <- as.factor(with(df_total,paste(D1,D2,D3,sep=",")))
+
+df_maxmin <- data.frame(c(i_min,i_max),c(a_min,a_max))
+colnames(df_maxmin) <- c("I3","A3")
+
+my_cdf <- function(data, mapping, ...) {
+  col = as.character(mapping$x)[2]
+  fcol = as.character(mapping$colour)[2]
+  
+  dfs = process_cdf(data,df_maxmin,col,fcol)
+  marks = dfs[[1]]
+  df_cdf = dfs[[2]]
+  
+  # plot everything
+  plot <- ggplot(data = df_cdf, mapping=aes(x=x_cdf,y=y_cdf,color=decision,fill=decision)) +
+    geom_line() +
+    geom_segment(data=marks, aes(x=interval_vector, xend=interval_vector,y=0.0, yend=interval_limits,color=NA)) +
+    geom_area(position="identity",alpha=0.5) +
+    scale_x_continuous(limits=c(as.numeric(df_maxmin[1,col]),
+                                as.numeric(df_maxmin[2,col])))
+  return(list(plot,marks))
+}
+
+labels <- levels(df_total$decision)
+labels_plot <- process_labels(labels)
+
+col <- "I3"
+annotate_levels <- c(3)
+outs <- my_cdf(df_total, aes_string(x=col,colour="decision",fill="decision"))
+marks <- outs[[2]]
+cdf1_E <- outs[[1]] +
+  geom_segment(data=marks[annotate_levels,], 
+               aes(x=-Inf, xend=interval_vector,
+                   y=interval_limits, yend=interval_limits,
+                   color=NA), linetype="longdash",size=0.5) +
+  annotate(geom="text", x=0.015+as.numeric(df_maxmin[1,col]), 
+           y=marks[annotate_levels,"interval_limits"]+0.15, 
+           label=round(marks[annotate_levels,"interval_limits"], digits=3),
+           color="black", size=5) +
+  ylab("probability") +
+  xlab("") +
+  scale_fill_discrete(labels = labels_plot) +
+  labs(fill = unname(TeX("$w$, material, $n_{struts}$"))) +
+  scale_colour_discrete(guide = "none") +
+  theme_void() +
+  theme(legend.position="none") +
+  guides(fill = guide_legend(nrow = 2)) +
+  export_theme
+cdf1_E
+
+col <- "A3"
+annotate_levels <- c(4)
+outs <- my_cdf(df_total, aes_string(x=col,colour="decision",fill="decision"))
+marks <- outs[[2]]
+cdf2_E <- outs[[1]] +
+  geom_segment(data=marks[annotate_levels,], 
+               aes(x=-Inf, xend=interval_vector,
+                   y=interval_limits, yend=interval_limits,
+                   color=NA), linetype="longdash",size=0.5) +
+  annotate(geom="text", x=0.015+as.numeric(df_maxmin[1,col]), 
+           y=marks[annotate_levels,"interval_limits"]-0.3, 
+           label=round(marks[annotate_levels,"interval_limits"], digits=3),
+           color="black", size=5) +
+  ylab("probability") +
+  xlab("") +
+  scale_fill_discrete(labels = labels_plot) +
+  labs(fill = unname(TeX("$w$, material, $n_{struts}$"))) +
+  scale_colour_discrete(guide = "none") +
+  scale_y_continuous(breaks=c(0.0,0.5,1.0)) +
+  theme_void() +
+  theme(legend.position="none") +
+  coord_flip() +
+  export_theme
+cdf2_E
+
+plot_E <- ggplot(df_total, aes(x=I3, y=A3, color=decision)) +
+  geom_point(aes(color=decision), size=2.5) +
+  # geom_point(shape=1, color="black", size=3, stroke=0.1, alpha=0.2) +
+  geom_line(data=ref_line_int, aes(x=x, y=y), color="black", linetype="dashed") +
+  labs(color="margin node\n") +
+  scale_y_continuous(limits=c(a_min,a_max), name="Change absorption capability") +
+  scale_x_continuous(limits=c(i_min,i_max), name="Impact on performance") +
+  theme_pubr() +
+  export_theme +
+  theme(legend.position=c(0.15, 0.9),
+        plot.margin=unit(c(-0.1,-0.1,0.0,0.0), "cm"))
+plot_E
+
+# Remove the x tick labels from the plots
+# t,r,b,l
+cdf1_E <- cdf1_E + theme(axis.ticks.x=element_blank(),
+                         axis.text.x=element_blank(),
+                         plot.margin=unit(c(0.0,0.0,0.0,0.0), "cm"))
+cdf2_E <- cdf2_E + theme(axis.ticks.y=element_blank(),
+                         axis.text.y=element_blank(),
+                         plot.margin=unit(c(0.0,0.0,0.0,0.0), "cm")) +
+  scale_fill_discrete(guide = "none")
+plot_E <- plot_E +
+  scale_color_discrete(guide = "none")
+
+p_cdf_E <- cdf1_E + plot_spacer() + plot_E + cdf2_E +
+  plot_layout(ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4), guides="collect") & theme(legend.position="top")
+p_cdf_E
 
 ########################################
-## 5. PDF + CDF plot of single concept
+## 7. PDF + CDF plot of single concept
 ########################################
 pad <- plot_spacer() + theme_void()
 #
@@ -622,7 +752,7 @@ p_cdf_pdf <- cdf1 + pad + pad + dens1 + pad + pad + plot + dens2 + cdf2 +
 
 
 ########################################
-## 6. Export plots
+## 8. Export plots
 ########################################
 ggsave(paste0(main_wd,img_dir,"C1/scatter_mean.pdf"),
        plot=p_mean,
@@ -630,6 +760,10 @@ ggsave(paste0(main_wd,img_dir,"C1/scatter_mean.pdf"),
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf.pdf"),
        plot=p_cdf,
+       dpi=320, width=8, height=8)
+
+ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf_E3.pdf"),
+       plot=p_cdf_E,
        dpi=320, width=8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf_pdf.pdf"),

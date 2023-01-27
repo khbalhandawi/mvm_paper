@@ -160,3 +160,4 @@ mvm
 .Rhistory
 .Rdata
 *.html
+.Rproj.user

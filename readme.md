@@ -51,7 +51,7 @@ You may then run all the R files to produce the plots. Here is a description of 
 |-----------------------------------------------------------|------------------|-----------------|
 |[plot_funcs.R](plot_funcs.R)|Plot theme related functions and definitions. Executed at the beginning of other scripts.|~|
 |[plot_mvp.R](plot_mvp.R)|Plots the margin value map (MVP) of various runs and superimposes them.|[strut_design_combined.py](strut_design_combined.py)|
-|[plot_scatter_matrix.R](plot_scatter_matrix.R)|Plots a scatter matrix of a particular run.|[strut_design_combined.py](strut_design_combined.py)|
+|[plot_scatter_matrix.R](plot_scatter_matrix.R)|Plots a scatter matrix of a particular run and margin node.|[strut_design_combined.py](strut_design_combined.py)|
 |[visualize_impact.R](visualize_impact.R)|Plots a bar chart of the impact on performance for the manufacturability example.|[strut_design_manufacturability.py](strut_design_manufacturability.py)|
 
 ## For development

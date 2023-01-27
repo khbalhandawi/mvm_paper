@@ -1,0 +1,1 @@
+echo $GITDIR/mvm_paper/mvmlib/src > .env/lib/python3.9/site-packages/mvmlib.pth
