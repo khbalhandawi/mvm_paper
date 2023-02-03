@@ -33,6 +33,7 @@ Here is a brief description of what each python script does:
 |[postprocess_DOE.py](postprocess_DOE.py)|Performs a full-factorial DOE on all the design parameters of the strut FEA problem and processes results into dataframes and a parallel coordinates plot (PCP).|
 |[postprocess_DOE_min_excess.py](postprocess_DOE_min_excess.py)|Performs a full-factorial DOE on the *input* design parameters of the strut FEA problem and processes results into dataframes and a parallel coordinates plot (PCP).|
 |[postprocess_results.py](postprocess_results.py)|Postprocesses the results of a stochastic MVM run into scatter plots, marginal distributions and scatter matrices.|
+|[postprocess_concepts_min_excess.py](postprocess_concepts_min_excess.py)|Postprocesses the results of arbitrary runs from [strut_design_combined.py](strut_design_combined.py) into dataframes for PCPs.|
 
 ## Installing R libraries and dependancies
 
