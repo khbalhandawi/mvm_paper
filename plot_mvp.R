@@ -12,33 +12,48 @@ library(tibble)
 library(gridExtra)
 library(grid)
 library(tidyverse)
+library(scales)
 
 #HOME_WD <- "~/"
 HOME_WD <- Sys.getenv("GITDIR")
 ## Where the working directory is
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
-# For fea example
-data_dir <- paste0("data/strut_fea/")
-img_dir <- paste0("images/strut_fea/")
-dir.create(file.path(img_dir), showWarnings=FALSE, recursive=TRUE)
-dir.create(file.path(img_dir,"C1"), showWarnings=FALSE, recursive=TRUE)
+# # For fea example (polygonal)
+# folder <- "strut_fea_poly"
+# legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
+# legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
+# node_labels <- c("$e_1$", "$e_2$", "$e_3$")
+# shapes <- c(15,18,16,17)
+# concept_labels <- c("1A", "1B", "1C", "1D")
+# thetas <- c(0.00, 30.0, 0.00, 30.0)
+# heights <- c(15.0,15.0,20.0,20.0)
+# palette <- hue_pal()(3) # "#F8766D","#00BA38","#619CFF"
+# # fea limits
+# x0 <- array(c(-0.009630757, 1.152203562))
+# x1 <- array(c(0.3329746, 4.3151886))
 
-legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
-legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
+# For fea example (circumferential)
+folder <- "strut_fea_circ"
+legend_aes <- list(linetype=c(0,0,0,0,2), shape=c(16,16,16,16,NA))
+legend_dist_aes <- list(linetype=c(2,2,2,2,2), shape=c(16,16,16,16,NA))
+node_labels <- c("$e_1$", "$e_2$", "$e_3$", "$e_4$")
+shapes <- c(3,4,8,6)
+concept_labels <- c("2A", "2B", "2C", "2D")
 thetas <- c(0.00, 30.0, 0.00, 30.0)
 heights <- c(15.0,15.0,20.0,20.0)
+palette <- c(hue_pal()(3),"#C77CFF") # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
 # fea limits
 x0 <- array(c(-0.009630757, 1.152203562))
 x1 <- array(c(0.3329746, 4.3151886))
 
 # # For simple example
-# data_dir <- paste0("data/strut/")
-# img_dir <- paste0("images/strut/")
+# folder <- "strut"
 # legend_dist_aes <- list(linetype=c(2,2,2), shape=c(16,16,NA))
 # legend_aes <- list(linetype=c(0,0,2), shape=c(16,16,NA))
 # thetas=c(0.00, 30.0, 0.00, 30.0)
 # heights=c(15.0,15.0,20.0,20.0)
+# palette <- hue_pal()(2) # "#F8766D","#00BFC4"
 # # simple limits
 # x0 <- array(c(0.00, 2.5))
 # x1 <- array(c(0.075, 3.5))
@@ -46,6 +61,10 @@ x1 <- array(c(0.3329746, 4.3151886))
 ## CHANGE TO MAIN WD
 setwd(main_wd)
 source(paste0(main_wd,"/plot_funcs.R"))
+data_dir <- paste0("data/",folder,"/")
+img_dir <- paste0("images/",folder,"/")
+dir.create(file.path(img_dir), showWarnings=FALSE, recursive=TRUE)
+colors_vector <- extend_palette(length(node_labels),length(thetas),palette)
 
 export_theme <- export_theme + theme(plot.margin=unit(c(0,0,0,0),units="cm"),
                                      plot.tag=element_text(size=14,face="bold"),
@@ -164,19 +183,19 @@ x1_n <- array(c(1,1))
 df_mean_1 <- df_mean_1 %>%
   mutate(Impact, Impact_n=(Impact - x0[1]) / (x1[1] - x0[1])) %>%
   mutate(Absorption, Absorption_n=(Absorption - x0[2]) / (x1[2] - x0[2])) %>%
-  mutate(concept="A")
+  mutate(concept=concept_labels[1])
 df_mean_2 <- df_mean_2 %>%
   mutate(Impact, Impact_n=(Impact - x0[1]) / (x1[1] - x0[1])) %>%
   mutate(Absorption, Absorption_n=(Absorption - x0[2]) / (x1[2] - x0[2])) %>%
-  mutate(concept="B")
+  mutate(concept=concept_labels[2])
 df_mean_3 <- df_mean_3 %>%
   mutate(Impact, Impact_n=(Impact - x0[1]) / (x1[1] - x0[1])) %>%
   mutate(Absorption, Absorption_n=(Absorption - x0[2]) / (x1[2] - x0[2])) %>%
-  mutate(concept="C")
+  mutate(concept=concept_labels[3])
 df_mean_4 <- df_mean_4 %>%
   mutate(Impact, Impact_n=(Impact - x0[1]) / (x1[1] - x0[1])) %>%
   mutate(Absorption, Absorption_n=(Absorption - x0[2]) / (x1[2] - x0[2])) %>%
-  mutate(concept="D")
+  mutate(concept=concept_labels[4])
 
 ref_line_data <- data.frame(X=c(i_min, i_max),
                             neutral=c(a_min, a_max),
@@ -273,26 +292,25 @@ p_concept <- grid.arrange(ylab, legend, p1, p2, p3, p4, xlab, ncol=3, nrow=4,
 
 # Aggregate plots
 df_mean_agg <- do.call("rbind", list(df_mean_1,df_mean_2,df_mean_3,df_mean_4)) %>%
-  mutate(concept=as.factor(concept))
+  mutate(concept=factor(concept,concept_labels))
 
 # set up shapes
-shapes <- c(15,18,16,17)
-names(shapes) <- toupper(letters[1:4])
+names(shapes) <- concept_labels
 sizes <- c(2.0,2.0,2.0,2.0)
-names(sizes) <- toupper(letters[1:4])
+names(sizes) <- concept_labels
 strokes <- seq(from=0.8,to=0.2,by=-0.2)
-names(strokes) <- toupper(letters[1:4])
+names(strokes) <- concept_labels
 alphas <- seq(from=0.8,to=0.2,by=-0.2)
-names(alphas) <- toupper(letters[1:4])
+names(alphas) <- concept_labels
 
 p_agg <- ggplot(df_mean_agg, aes(x=Impact_n, y=Absorption_n, color=node)) +
   geom_line(data=ref_line_data, aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
   # geom_point(data=ref_line_data, shape=1, color="black", size=2, stroke=0.1, alpha=0.1) +
-  geom_point(aes(color=node,shape=concept,size=concept,alpha=concept)) +
+  geom_point(aes(shape=concept,size=concept,alpha=concept)) +
   scale_y_continuous(limits=c(0,1)) +
   scale_x_continuous(limits=c(0,1)) +
   scale_colour_manual(values=c(palette),
-                      labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$"))),
+                      labels = unname(TeX(node_labels)),
                       guide = guide_legend(override.aes=aes(size=4.0))) +
   scale_shape_manual(values=shapes) +
   scale_size_manual(values=sizes) +
@@ -307,11 +325,17 @@ p_agg <- ggplot(df_mean_agg, aes(x=Impact_n, y=Absorption_n, color=node)) +
   labs(tag="(a)")
 p_agg
 
+if (folder == "strut_fea_circ") {
+  df_mean_agg_circ <- df_mean_agg
+} else {
+  df_mean_agg_poly <- df_mean_agg
+}
+
 ########################################
 ## 3. Export distance plots
 ########################################
 shortest_line_1 <- get_shortest_df(df_mean_1) %>%
-  mutate(concept="A")
+  mutate(concept=concept_labels[1])
 distance <- aggregate(shortest_line_1[, 5], list(shortest_line_1$node), mean) %>%
   rename(node=Group.1) %>%
   rename(dist=x)
@@ -336,7 +360,7 @@ p1_dist <- ggplot(shortest_line_1, aes(x=X_n, y=Y_n, color=node)) +
   labs(tag="(a)")
 
 shortest_line_2 <- get_shortest_df(df_mean_2) %>%
-  mutate(concept="B")
+  mutate(concept=concept_labels[2])
 distance <- aggregate(shortest_line_2[, 5], list(shortest_line_2$node), mean) %>%
   rename(node=Group.1) %>%
   rename(dist=x)
@@ -360,7 +384,7 @@ p2_dist <- ggplot(shortest_line_2, aes(x=X_n, y=Y_n, color=node)) +
   labs(tag="(b)")
 
 shortest_line_3 <- get_shortest_df(df_mean_3) %>%
-  mutate(concept="C")
+  mutate(concept=concept_labels[3])
 distance <- aggregate(shortest_line_3[, 5], list(shortest_line_3$node), mean) %>%
   rename(node=Group.1) %>%
   rename(dist=x)
@@ -384,7 +408,7 @@ p3_dist <- ggplot(shortest_line_3, aes(x=X_n, y=Y_n, color=node)) +
   labs(tag="(c)")
 
 shortest_line_4 <- get_shortest_df(df_mean_4) %>%
-  mutate(concept="D")
+  mutate(concept=concept_labels[4])
 distance <- aggregate(shortest_line_4[, 5], list(shortest_line_4$node), mean) %>%
   rename(node=Group.1) %>%
   rename(dist=x)
@@ -447,7 +471,8 @@ df_line_agg <- do.call("rbind", list(shortest_line_1,shortest_line_2,shortest_li
 p_dist_agg <- ggplot(data=df_line_agg, aes(x=X_n, y=Y_n, color=node, group=interaction(node,concept))) +
   geom_line(color="grey",linetype="solid",size=0.5) +
   # geom_point(size=3.5) +
-  geom_point(aes(color=node,shape=concept), size=2.5) +
+  geom_point(data=df_line_agg %>% filter(row_number() %% 2 == 1), ## Select odd rows
+             aes(color=node,shape=concept), size=2.5) +
   geom_line(data=ref_line_data %>% mutate(concept=NA) %>% mutate(node=NA), aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
   scale_y_continuous(limits=c(0,1)) +
   scale_x_continuous(limits=c(0,1)) +
@@ -461,6 +486,12 @@ p_dist_agg <- ggplot(data=df_line_agg, aes(x=X_n, y=Y_n, color=node, group=inter
   export_theme +
   labs(tag="(b)")
 p_dist_agg
+
+if (folder == "strut_fea_circ") {
+  df_line_agg_circ <- df_line_agg
+} else {
+  df_line_agg_poly <- df_line_agg
+}
 
 # Combine dist and scatter plots together
 p_agg_export <- p_agg + theme(legend.position="top")
@@ -504,8 +535,122 @@ ggsave(paste0(main_wd,img_dir,"scatter_all.pdf"),
 reliability <- list(A=nrow(df_mean_1)/3000,B=nrow(df_mean_2)/3000,
                     C=nrow(df_mean_3)/3000,D=nrow(df_mean_4)/3000)
 
+# report value
+value <- list(A=sum(shortest_line_1$dist),B=sum(shortest_line_2$dist),
+              C=sum(shortest_line_3$dist),D=sum(shortest_line_4$dist))
+signif(unlist(value),3)
+
+# node values of each concept
+signif(shortest_line_1$dist_n[seq(1,nrow(shortest_line_1),2)],3)
+signif(shortest_line_2$dist_n[seq(1,nrow(shortest_line_1),2)],3)
+signif(shortest_line_3$dist_n[seq(1,nrow(shortest_line_1),2)],3)
+signif(shortest_line_4$dist_n[seq(1,nrow(shortest_line_1),2)],3)
+
 ########################################
-## 5. mean plot of single concept
+## 5. Export combined plots for poly and circ
+########################################
+  
+if (exists("df_mean_agg_poly") & exists("df_mean_agg_circ")) {
+  
+  df_mean_comb <- do.call("rbind", list(df_mean_agg_poly,df_mean_agg_circ)) %>%
+    mutate(concept=as.factor(concept))
+  
+  # set up shapes
+  shapes <- c(15,18,16,17,3,4,8,6)
+  names(shapes) <- unique(df_mean_comb$concept)
+  sizes <- c(2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0)
+  names(sizes) <- unique(df_mean_comb$concept)
+  strokes <- c(seq(from=0.8,to=0.2,by=-0.2),seq(from=0.8,to=0.2,by=-0.2))
+  names(strokes) <- unique(df_mean_comb$concept)
+  alphas <- c(seq(from=0.8,to=0.2,by=-0.2),seq(from=0.8,to=0.2,by=-0.2))
+  names(alphas) <- unique(df_mean_comb$concept)
+  
+  p_comb <- ggplot(df_mean_comb, aes(x=Impact_n, y=Absorption_n, color=node)) +
+    geom_line(data=ref_line_data, aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
+    # geom_point(data=ref_line_data, shape=1, color="black", size=2, stroke=0.1, alpha=0.1) +
+    geom_point(aes(shape=concept,size=concept,alpha=concept)) +
+    scale_y_continuous(limits=c(0,1)) +
+    scale_x_continuous(limits=c(0,1)) +
+    scale_colour_manual(values=c(palette),
+                        labels = unname(TeX(node_labels)),
+                        guide = guide_legend(override.aes=aes(size=4.0))) +
+    scale_shape_manual(values=shapes) +
+    scale_size_manual(values=sizes) +
+    scale_alpha_manual(values=alphas,
+                       guide = guide_legend(override.aes=aes(alpha=NA, size=4.0))) +
+    guides(shape=guide_legend(nrow=2,byrow=TRUE)) +
+    labs(color="margin node\n") +
+    xlab("Impact on performance") +
+    ylab("Change absorption capability") +
+    # guides(color=guide_legend(override.aes=legend_aes)) +
+    theme_pubr() +
+    export_theme +
+    labs(tag="(a)")
+  p_comb
+  
+}
+
+if (exists("df_line_agg_poly") & exists("df_line_agg_circ")) {
+  
+  df_line_comb <- do.call("rbind", list(df_line_agg_poly,df_line_agg_circ)) %>%
+    mutate(concept=as.factor(concept))
+  
+  
+  p_dist_comb <- ggplot(data=df_line_comb, aes(x=X_n, y=Y_n, color=node, group=interaction(node,concept))) +
+    geom_line(color="grey",linetype="solid",size=0.5) +
+    # geom_point(size=3.5) +
+    geom_point(data=df_line_comb %>% filter(row_number() %% 2 == 1), ## Select odd rows
+               aes(color=node,shape=concept), size=2.5) +
+    geom_line(data=ref_line_data %>% mutate(concept=NA) %>% mutate(node=NA), aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
+    scale_y_continuous(limits=c(0,1)) +
+    scale_x_continuous(limits=c(0,1)) +
+    scale_colour_manual(values=c(palette)) +
+    scale_shape_manual(values=shapes) +
+    labs(color="margin node\n") +
+    xlab("Impact on performance") +
+    ylab("Change absorption capability") +
+    # guides(color=guide_legend(override.aes=legend_aes)) +
+    theme_pubr() +
+    export_theme +
+    labs(tag="(b)")
+  p_dist_comb
+  
+}
+
+if (exists("p_comb") & exists("p_dist_comb")) {
+  
+  # Combine dist and scatter plots together
+  p_comb_export <- p_comb + theme(legend.position="top", legend.direction ="horizontal")
+  p_comb_export
+  legend <- get_legend(p_comb_export)
+  
+  # Remove the legends from the plots
+  # t,r,b,l
+  p_comb_export <- p_comb_export + theme(legend.position="none",
+                                         axis.title.x=element_blank(),
+                                         axis.title.y=element_blank())
+  p_dist_comb_export <- p_dist_comb + theme(legend.position="none",
+                                            axis.title.x=element_blank(),
+                                            axis.title.y=element_blank(),
+                                            axis.text.y=element_blank())
+  
+  ylab <- textGrob("Change absorption capability", rot=90, gp=gpar(fontfamily="", size=10, cex=1.5))
+  xlab <- textGrob("Impact on performance", gp=gpar(fontfamily="", size=10, cex=1.5))
+  blank <- grid.rect(gp=gpar(col="white",alpha=0.0))
+  
+  p_comb_combined <- grid.arrange(ylab, legend, p_comb_export, p_dist_comb_export, xlab, blank, ncol=5, nrow=4,
+                                 layout_matrix=rbind(c(1,6,6,6,6), c(1,2,2,2,6), c(1,3,6,4,6), c(1,5,5,5,6)),
+                                 widths=c(0.2, 2.7, 1.0, 2.7, 0.1), heights=c(0.01, 0.2, 2.5, 0.2),
+                                 vp=viewport(width=1.0, height=0.9))
+  
+  ggsave(paste0(main_wd,"images/","scatter_all.pdf"),
+         plot=p_comb_combined,
+         dpi=320, height=6.5, width=13)
+  
+}
+
+########################################
+## 6. mean plot of single concept
 ########################################
 i_min <- min(c(df_mean_1$Impact))
 a_min <- min(c(df_mean_1$Absorption))
@@ -537,7 +682,7 @@ dens1 <- ggplot(df_mean, aes(x=Impact, fill=node)) +
   geom_density(alpha=0.4) +
   scale_x_continuous(limits=c(i_min,i_max), name="") +
   labs(fill="margin node\n") +
-  scale_fill_discrete(labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$")))) +
+  scale_fill_discrete(labels = unname(TeX(node_labels))) +
   theme_void() +
   theme(legend.position="none") +
   export_theme
@@ -565,7 +710,7 @@ p_mean <- dens1 + plot_spacer() + plot + dens2 +
   plot_layout(ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4), guides="collect") & theme(legend.position="top")
 
 ########################################
-## 5. CDF plot of single concept
+## 7. CDF plot of single concept
 ########################################
 
 plot <- ggplot(df_mean, aes(x=Impact, y=Absorption, color=node)) +
@@ -576,7 +721,7 @@ plot <- ggplot(df_mean, aes(x=Impact, y=Absorption, color=node)) +
   labs(color="margin node\n") +
   scale_y_continuous(limits=c(a_min,a_max), name="Change absorption capability") +
   scale_x_continuous(limits=c(i_min,i_max), name="Impact on performance") +
-  scale_colour_discrete(labels = unname(TeX(c("$e_1$", "$e_2$", "$e_3$")))) +
+  scale_colour_discrete(labels = unname(TeX(node_labels))) +
   theme_pubr() +
   export_theme +
   theme(legend.position=c(0.15, 0.9),
@@ -630,7 +775,7 @@ p_cdf <- cdf1 + plot_spacer() + plot + cdf2 +
   plot_layout(ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4), guides="collect") & theme(legend.position="top")
 
 ########################################
-## 6. CDF plot of single node
+## 8. CDF plot of single node
 ########################################
 df_total <- read.csv(paste0(main_wd,data_dir,"C1/df_total.csv")) %>%
   mutate(across(6:8, as.factor))
@@ -739,7 +884,7 @@ p_cdf_E <- cdf1_E + plot_spacer() + plot_E + cdf2_E +
 p_cdf_E
 
 ########################################
-## 7. PDF + CDF plot of single concept
+## 9. PDF + CDF plot of single concept
 ########################################
 pad <- plot_spacer() + theme_void()
 #
@@ -752,8 +897,10 @@ p_cdf_pdf <- cdf1 + pad + pad + dens1 + pad + pad + plot + dens2 + cdf2 +
 
 
 ########################################
-## 8. Export plots
+## 10. Export plots
 ########################################
+dir.create(file.path(paste0(img_dir,"C1/")), showWarnings=FALSE, recursive=TRUE)
+
 ggsave(paste0(main_wd,img_dir,"C1/scatter_mean.pdf"),
        plot=p_mean,
        dpi=320, width=8, height=8)

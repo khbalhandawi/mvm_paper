@@ -2,18 +2,24 @@ import sys
 import os
 from mvm.utilities import check_folder
 import pandas as pd
+import random
 
-from man_defs import get_man_combined
+from man_defs import get_man_combined_poly, get_man_combined_circ
 
 num_threads = 1
+random.seed(10)
 
-# folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
-# folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
-folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 17.0
-# folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 17.0
-
-base_folder = os.path.join('data','strut_fea')
+# base_folder = os.path.join('data','strut_fea_poly') # choose a concept (polygonal or circumferential)
+# get_man_combined = get_man_combined_poly
+base_folder = os.path.join('data','strut_fea_circ') # choose a concept (polygonal or circumferential)
+get_man_combined = get_man_combined_circ
 check_folder(base_folder)
+
+# folder = os.path.join(base_folder,'C1'); lean = 0.0; height = 15.0
+# folder = os.path.join(base_folder,'C2'); lean = 30.0; height = 15.0
+# folder = os.path.join(base_folder,'C3'); lean = 0.0; height = 17.0
+folder = os.path.join(base_folder,'C4'); lean = 30.0; height = 17.0
+
 check_folder(folder)
 
 # off-the shelf parts
@@ -41,7 +47,7 @@ df.interpolate(method='linear',axis=0,inplace=True)
 material_dict = df.transpose().to_dict()
 
 man = get_man_combined(height=height,lean=lean,materials=material_dict,widths=widths,
-    train_surrogate=False,man_folder=base_folder,overwrite=True,name='strut_comb',num_threads=1)
+    train_surrogate=False,man_folder=base_folder,overwrite=True,name='strut_comb',num_threads=num_threads)
 
 # load the MAN
 man.load('strut_comb',folder=base_folder)

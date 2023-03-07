@@ -161,3 +161,6 @@ mvm
 .Rdata
 *.html
 .Rproj.user
+
+# profiling outputs
+*.stats

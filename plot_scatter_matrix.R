@@ -17,17 +17,28 @@ HOME_WD <- Sys.getenv("GITDIR")
 ## Where the MCMC chains are stored
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
-# For fea example
-data_dir <- paste0("data/strut_fea/C1/")
-img_dir <- paste0("images/strut_fea/C1/")
+# # For fea example (polygonal)
+# folder <- "strut_fea_poly"
+# node_labels <- c(expression(e1), expression(e2), expression(e3))
+# perf_labels <- c("$W$","$c_{raw}$","$T_1$","$T_2$","$B_x$","$B_y$")
+
+# For fea example (circumferential)
+folder <- "strut_fea_circ"
+node_labels <- c(expression(e1), expression(e2), expression(e3), expression(e4))
+perf_labels <- c("$W$","$c_{raw}$", "$W_{shroud}$", "$c_{shroud}$","$T_1$","$T_2$","$B_x$","$B_y$")
 
 # # For simple example
-# data_dir <- paste0("data/strut/C1/")
-# img_dir <- paste0("images/strut/C1/")
+# folder <- "strut"
+# node_labels = c(expression(e1), expression(e2))
+# perf_labels <- c("$W$","$c_{raw}$","$T_1$","$T_2$","$B_x$","$B_y$")
 
 ## CHANGE TO MAIN WD
 setwd(main_wd)
 source(paste0(main_wd,"/plot_funcs.R"))
+data_dir <- paste0("data/",folder,"/C1/")
+img_dir <- paste0("images/",folder,"/C1/")
+dir.create(file.path(img_dir), showWarnings=FALSE, recursive=TRUE)
+colors_vector <- extend_palette(length(node_labels),length(thetas),palette)
 
 export_theme <- theme_tufte() +
   theme(
@@ -93,14 +104,14 @@ df_matrix <- df_matrix %>%
   mutate(node = as.factor(node)) # convert to categorical type
 
 p_pairs <- ggpairs(df_matrix,
-                   mapping = ggplot2::aes(color=node, fill=factor(node, labels = c(expression(e1), expression(e2), expression(e3)))),
+                   mapping = ggplot2::aes(color=node, fill=factor(node, labels=node_labels)),
                    columns=3:ncol(df_matrix),
                    diag = list(continuous = my_hist),
                    upper = list(continuous = GGally::wrap(ggally_cor, stars = F)),
                    # upper = list(continuous = wrap(cor_func,method = "spearman", symbol = expression("\u03C1 ="))),
                    lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
                    legend=1,
-                   columnLabels = c("$W$","$c_{raw}$","$T_1$","$T_2$","$B_x$","$B_y$"),
+                   columnLabels = perf_labels,
                    labeller = label_parse_label
                   ) +
   labs(fill = "margin node") +

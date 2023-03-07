@@ -2,13 +2,15 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
-import os
+import os, glob, shutil
 import itertools
 from copy import deepcopy
 import multiprocess as mp
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.offline import plot, iplot, init_notebook_mode # Import offline plot functions from plotly
+from scipy import stats
+import random
 
 from mvm import nearest
 from mvm.DOELib import scaling
@@ -16,13 +18,13 @@ from mvm.utilities import check_folder, parallel_sampling
 
 from mvm import MarginNetwork
 from typing import List, Union
-from man_defs import get_man_combined
+from man_defs import get_man_combined_poly, get_man_combined_circ
 
 mpl.rcParams['axes.linewidth'] = 0.5
 
 # must define parallelizable functions outside main
 def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[MarginNetwork], n_epochs: int,
-                    base_folder: str, man_name: str, process_ids: List[int]=None):
+                    base_folder: str, man_name: str, strategies: List[str], randomize: bool, process_ids: List[int]=None):
 
     # Select a man to forward based on process id
     if process_ids == None:
@@ -43,25 +45,85 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
 
         # Perform Monte-Carlo simulation
         for n in range(n_epochs):
-            # man.randomize()
+            if randomize:
+                man.randomize()
             man.init_decisions()
             man.decision_vector = design[len(man.design_params):]
-            man.allocate_margins('manual')
+            man.allocate_margins(strategies)
             man.forward()
             man.compute_impact()
-            man.compute_absorption()
+            man.compute_absorption(max_iter=100)
 
         man.save(man_name,folder=folder,results_only=True)
 
 if __name__ == "__main__":
 
-    # get the man object for the fea problem and load it
-    # base_folder = os.path.join('data','strut_fea','opt_manual_deterministic')
-    # img_folder = os.path.join('images','strut_fea','opt_manual_deterministic')
+    resume = True
+    random.seed(10)
+
+    # case 1:
+    base_dir = "strut_fea_poly"
+    get_man_combined = get_man_combined_poly
+    strategies = ['manual',]*3
+    strategy_name = 'manual'
+    sampling = 'stochastic'
+    n_epochs = 50
+    d_labels = ['height','lean angle','width','material','n_struts']
+    perf_labels = ['weight','cost']
+
+    # # case 2:
+    # base_dir = "strut_fea_circ"
+    # get_man_combined = get_man_combined_circ
+    # strategies = ['manual','manual','manual','min_excess']
+    # strategy_name = 'manual'
+    # sampling = 'stochastic'
+    # n_epochs = 100
+    # d_labels = ['height','lean angle','width','material','n_struts','t_shroud']
+    # perf_labels = ['weight','cost','W_shroud','c_shroud']
+
+    # # case 3:
+    # base_dir = "strut_fea_poly"
+    # get_man_combined = get_man_combined_poly
+    # strategies = ['manual',]*3
+    # strategy_name = 'manual'
+    # sampling = 'deterministic'
     # n_epochs = 1
-    base_folder = os.path.join('data','strut_fea','opt_manual_stochastic')
-    img_folder = os.path.join('images','strut_fea','opt_manual_stochastic')
-    n_epochs = 100
+    # d_labels = ['height','lean angle','width','material','n_struts']
+    # perf_labels = ['weight','cost']
+
+    # # case 4:
+    # base_dir = "strut_fea_circ"
+    # get_man_combined = get_man_combined_circ
+    # strategies = ['manual','manual','manual','min_excess']
+    # strategy_name = 'manual'
+    # sampling = 'deterministic'
+    # n_epochs = 1
+    # d_labels = ['height','lean angle','width','material','n_struts','t_shroud']
+    # perf_labels = ['weight','cost','W_shroud','c_shroud']
+
+    # # case 5:
+    # base_dir = "strut_fea_poly"
+    # get_man_combined = get_man_combined_poly
+    # strategies = ['min_excess',]*3
+    # strategy_name = 'minexcess'
+    # sampling = 'deterministic'
+    # n_epochs = 1
+    # d_labels = ['height','lean angle','width','material','n_struts']
+    # perf_labels = ['weight','cost']
+
+    # # case 6:
+    # base_dir = "strut_fea_circ"
+    # get_man_combined = get_man_combined_circ
+    # strategies = ['min_excess',]*4
+    # strategy_name = 'minexcess'
+    # sampling = 'deterministic'
+    # n_epochs = 1
+    # d_labels = ['height','lean angle','width','material','n_struts','t_shroud']
+    # perf_labels = ['weight','cost','W_shroud','c_shroud']
+
+    # get the man object for the fea problem and load it
+    base_folder = os.path.join('data',base_dir,'opt_%s_%s' %(strategy_name,sampling))
+    img_folder = os.path.join('images',base_dir,'opt_%s_%s' %(strategy_name,sampling))
 
     check_folder(img_folder)
 
@@ -120,15 +182,16 @@ if __name__ == "__main__":
     universe_d += [list(np.arange(lb_theta,ub_theta+10,10))]
     
     # Generate full-factorial DOE
-    universe = universe_d + man.universe_decision
+    universe_decision = [d if s == 'manual' else [None,] for d,s in zip(man.universe_decision,strategies)]
+    universe = universe_d + universe_decision
     design_doe = list(itertools.product(*universe))
     # design_doe = [(14, 10, 90, 'Inconel', 10),] # try a unique design
     n_designs = len(design_doe)
-
+    print("Analyzing %i concepts" %n_designs)
     #---------------------------------------------------
     # Evaluate all the different designs
     # Parallel computation if num_threads > 1
-    num_threads = 8
+    num_threads = 4
 
     man_objs = []
     for pid in range(num_threads):
@@ -136,7 +199,9 @@ if __name__ == "__main__":
 
     kwargs = {'n_epochs': n_epochs, 
               'base_folder': base_folder, 
-              'man_name': man_name}
+              'man_name': man_name,
+              'strategies': strategies,
+              'randomize': True if sampling=='stochastic' else False}
 
     vargs_iterator = [[i,design,] for i,design in enumerate(design_doe)]
     # Partition into chunks
@@ -150,7 +215,11 @@ if __name__ == "__main__":
     fkwargs = kwargs
     fkwargs['mans'] = man_objs
 
-    # results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
+    if not resume:
+        for item in glob.glob(base_folder+"/d*"):
+            if os.path.isdir(item):
+                shutil.rmtree(item)
+    results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
     # sys.exit(0)
     
     #---------------------------------------------------
@@ -188,17 +257,22 @@ if __name__ == "__main__":
             man.load(man_name,folder=base_folder) # load the basic MAN
             man.load(man_name,folder=folder,results_only=True) # load the sampled data
 
+            impact_values = man.impact_matrix.values
+            impact_values[impact_values==0] = np.nan # remove zero impact values from averaging
+            for k in range(impact_values.shape[2]): # return rows that are full of zeros
+                impact_values[np.all(np.isnan(impact_values[:,:,k]),axis=1),:,k] = 0
+
             # calculate means
-            I = man.impact_matrix.values[n,:,:]
+            I = impact_values[n,:,:]
             A = man.absorption_matrix.values[n,:,:]
 
-            i = np.mean(I,axis=1) # absorption
+            i = np.nanmean(I,axis=1) # absorption
             a = np.nanmean(A,axis=1) # impact
             # scaled
             i_n = scaling(i,lb[0],ub[0],1) # absorption
             a_n = scaling(a,lb[1],ub[1],1) # impact
 
-            point = np.array([np.mean(i), np.mean(a)]) # nan mean to ignore nans
+            point = np.array([np.nanmean(i), np.mean(a)]) # nan mean to ignore nans (only for I!!)
             pn, dist_node = nearest(lb, ub, point)
             dist += dist_node
             # point_n = np.array([np.mean(i_n), np.mean(a_n)])
@@ -213,8 +287,11 @@ if __name__ == "__main__":
             nodal_dict = {'id':id}
             for d_i,d in enumerate(man.design_params):
                 nodal_dict[d.key] = design[d_i]
-            for decision_i,decision in enumerate(man.decisions):
-                nodal_dict[decision.key] = design[d_i+1+decision_i]
+            for decision_i,(decision,strategy) in enumerate(zip(man.decisions,strategies)):
+                if strategy == 'manual':
+                    nodal_dict[decision.key] = design[d_i+1+decision_i]
+                elif strategy == 'min_excess':
+                    nodal_dict[decision.key] = stats.mode(decision.selection_values.values,keepdims=False)[0] # get most frequent decision
             nodal_dict['node'] = n
             nodal_dict['excess'] = e
             nodal_dict['threshold'] = tt
@@ -243,15 +320,18 @@ if __name__ == "__main__":
         reliability = excess_feasible.shape[1] / excess_vector.shape[1]
 
         # mean impact and absorption
-        mean_i = np.mean(man.impact_matrix.values,axis=(1,2)) # absorption
+        mean_i = np.nanmean(impact_values,axis=(1,2)) # absorption
         mean_a = np.nanmean(man.absorption_matrix.values,axis=(1,2)) # impact
 
         # construct dict
         total_dict = {'id':id}
         for d_i,d in enumerate(man.design_params):
             total_dict[d.key] = design[d_i]
-        for decision_i,decision in enumerate(man.decisions):
-            total_dict[decision.key] = design[d_i+1+decision_i]
+        for decision_i,(decision,strategy) in enumerate(zip(man.decisions,strategies)):
+            if strategy == 'manual':
+                total_dict[decision.key] = design[d_i+1+decision_i]
+            elif strategy == 'min_excess':
+                total_dict[decision.key] = stats.mode(decision.selection_values.values,keepdims=False)[0] # get most frequent decision
         for node_i,node in enumerate(man.margin_nodes):
             total_dict[node.key] = excess_mean[node_i]
         for p_i,p in enumerate(man.performances):
@@ -267,12 +347,14 @@ if __name__ == "__main__":
 
     df = df.set_index('id')
     df_nodal = df_nodal.set_index('id')
+    df_bak = df
+    df_nodal_bak = df_nodal
 
-    labels = ['height','lean angle','width','material','n_struts'] + \
-        [e.key for e in man.margin_nodes] + ['weight','cost'] + \
+    labels = d_labels + \
+        [e.key for e in man.margin_nodes] + perf_labels + \
         list(df.columns[len(man.design_params)+len(man.decisions)+len(man.margin_nodes)+len(man.performances):])
 
-    labels_nodal = ['height','lean angle','width','material','n_struts'] + \
+    labels_nodal = d_labels + \
         list(df_nodal.columns[len(man.design_params)+len(man.decisions):])
 
     df = df.set_axis(labels, axis=1, inplace=False)
@@ -348,7 +430,6 @@ if __name__ == "__main__":
         )
     ]
     plot(data_pd_nodal, show_link=False, filename = os.path.join(img_folder,'pcp_nodal.html'), auto_open=True)
-
 
     #---------------------------------------------------
     # export data

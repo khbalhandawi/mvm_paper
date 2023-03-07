@@ -66,7 +66,7 @@ class B1(Behaviour):
 
 # this is the buckling model
 class B2(Behaviour):
-    def __call__(self, w, h, theta, E, r1, r2, K):
+    def __call__(self, w, h, theta, E, r1, r2, K, **kwargs):
         length = -r1 * np.cos(np.deg2rad(theta)) + np.sqrt(r2 ** 2 - (r1 * np.sin(np.deg2rad(theta))) ** 2)
 
         f_buckling = ((np.pi ** 2) * E * w * (h ** 3)) / (12 * ((K * length) ** 2))
@@ -97,7 +97,7 @@ class B3(Behaviour):
 
 # this is the material model
 class B4(Behaviour):
-    def __call__(self, material):
+    def __call__(self, material, **kwargs):
 
         material_dict = {
             'dummy'   : {
@@ -210,6 +210,10 @@ p1 = Performance('P1', direction='less_is_better')
 p2 = Performance('P2', direction='less_is_better')
 p3 = Performance('P3', direction='less_is_better')
 
+decisions = [decision_1, decision_2]
+behaviours = [b1, b2, b3, b4, b5, b6]
+margin_nodes = [e1, e2]
+performances = [p1, p2, p3]
 
 # Define the MAN
 class MAN_AM(MarginNetwork):
@@ -219,7 +223,7 @@ class MAN_AM(MarginNetwork):
         s1.random()
         s2.random()
 
-    def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy='min_excess', outputs=['dv','dv','dv']):
+    def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy=['min_excess',]*len(margin_nodes), outputs=['dv',]*len(margin_nodes)):
         # retrieve MAN components
         d1 = self.design_params[0]  # h
         d2 = self.design_params[1]  # theta
@@ -263,14 +267,14 @@ class MAN_AM(MarginNetwork):
             self.fixed_params[3].value, # r2
             self.fixed_params[4].value, # K
         ]
-        decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
+        decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy[0], num_threads, outputs[0],*args)
         # invert decided value: decided_value, h, theta, E, r1, r2, K
         b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
         # T1, T2, h, theta, alpha, E, r1, r2, Ts)
         b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
         # Execute decision node for material and translate to yield stress: material
-        decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
+        decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy[1], num_threads, outputs[1])
         # invert decided value: sigma_y
         b4.inv_call(decision_2.output_value)
 
@@ -288,11 +292,6 @@ class MAN_AM(MarginNetwork):
         p2(b5.performance[1])
         p3(b6.performance)
 
-
-decisions = [decision_1, decision_2]
-behaviours = [b1, b2, b3, b4, b5, b6]
-margin_nodes = [e1, e2]
-performances = [p1, p2, p3]
 
 man_AM = MAN_AM(design_params, input_specs, fixed_params,
           behaviours, decisions, margin_nodes, performances, 'MAN_1')
@@ -394,6 +393,11 @@ class B8(Behaviour):
 b7 = B7(n_i=5, n_p=0, n_dv=1, n_tt=0, key='B7')
 b8 = B8(n_i=0, n_p=1, n_dv=0, n_tt=0, key='B8')
 
+decisions = [decision_1, decision_2]
+behaviours = [b1, b2, b3, b7, b5, b8]
+margin_nodes = [e1, e2]
+performances = [p1, p2, p3]
+
 # Define the MAN
 class MAN_casting(MarginNetwork):
 
@@ -403,7 +407,7 @@ class MAN_casting(MarginNetwork):
         s1.random()
         s2.random()
 
-    def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy='min_excess', outputs=['dv','dv','dv']):
+    def forward(self, num_threads=1, recalculate_decisions=False, allocate_margin=False, strategy=['min_excess']*len(margin_nodes), outputs=['dv',]*len(margin_nodes)):
         # retrieve MAN components
         d1 = self.design_params[0]  # h
         d2 = self.design_params[1]  # theta
@@ -447,14 +451,14 @@ class MAN_casting(MarginNetwork):
             self.fixed_params[3].value, # r2
             self.fixed_params[4].value, # K
         ]
-        decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[0],*args)
+        decision_1(b1.threshold, recalculate_decisions, allocate_margin, strategy[0], num_threads, outputs[0],*args)
         # invert decided value: decided_value, h, theta, E, r1, r2, K
         b2.inv_call(decision_1.output_value, d1.value, d2.value, i2.value, i3.value, i4.value, i5.value)
 
         # T1, T2, h, theta, alpha, E, r1, r2, Ts)
         b3(s1.value, s2.value, d1.value, d2.value, i1.value, i2.value, i3.value, i4.value, i6.value)
         # Execute decision node for material and translate to yield stress: material
-        decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy, num_threads, outputs[1])
+        decision_2(b3.threshold, recalculate_decisions, allocate_margin, strategy[1], num_threads, outputs[1])
         # invert decided value: sigma_y
         b7.inv_call(decision_2.output_value)
 
@@ -473,11 +477,6 @@ class MAN_casting(MarginNetwork):
         p2(b5.performance[1])
         p3(b8.performance)
 
-
-decisions = [decision_1, decision_2]
-behaviours = [b1, b2, b3, b7, b5, b8]
-margin_nodes = [e1, e2]
-performances = [p1, p2, p3]
 
 man_casting = MAN_casting(design_params, input_specs, fixed_params,
           behaviours, decisions, margin_nodes, performances, 'MAN_2')
@@ -510,7 +509,6 @@ impact_casting = man_casting.impact_matrix.value
 
 import pandas as pd
 import numpy as np
-import altair as alt
 
 e1_values = np.hstack((impact_AM[0,:].reshape(-1,1),impact_casting[0,:].reshape(-1,1)))
 e2_values = np.hstack((impact_AM[1,:].reshape(-1,1),impact_casting[1,:].reshape(-1,1)))

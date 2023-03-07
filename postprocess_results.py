@@ -8,7 +8,7 @@ import os
 
 from mvm import nearest
 from mvm.DOELib import scaling
-from man_defs import get_man_combined, get_man
+from man_defs import get_man_combined_poly, get_man_combined_circ, get_man
 
 ###########################################################
 #                    ANALYTICAL PROBLEM                   #
@@ -52,11 +52,18 @@ from man_defs import get_man_combined, get_man
 ###########################################################
 #                       FEA PROBLEM                       #
 ###########################################################
+
+base_folder = os.path.join('data','strut_fea_poly') # choose a concept (polygonal or circumferential)
+get_man_combined = get_man_combined_poly
+
+# base_folder = os.path.join('data','strut_fea_circ') # choose a concept (polygonal or circumferential)
+# get_man_combined = get_man_combined_circ
+
 # get man object for the fea problem and load it
-folder = os.path.join('data','strut_fea','C1'); lean = 0.0; height = 15.0
-# folder = os.path.join('data','strut_fea','C2'); lean = 30.0; height = 15.0
-# folder = os.path.join('data','strut_fea','C3'); lean = 0.0; height = 17.0
-# folder = os.path.join('data','strut_fea','C4'); lean = 30.0; height = 17.0
+folder = os.path.join(base_folder,'C1'); lean = 0.0; height = 15.0
+# folder = os.path.join(base_folder,'C2'); lean = 30.0; height = 15.0
+# folder = os.path.join(base_folder,'C3'); lean = 0.0; height = 17.0
+# folder = os.path.join(base_folder,'C4'); lean = 30.0; height = 17.0
 
 # off-the shelf parts
 widths = list(range(60,120+10,10))
@@ -92,6 +99,9 @@ man.load(man_name,folder=folder)
 # drop NaNs (infeasible input specifications)
 notnan = ~np.isnan(man.absorption_matrix.values).any(axis=(0,1))
 I = man.impact_matrix.values[:,:,notnan]
+I[I==0] = np.nan # remove zero impact values from averaging
+for k in range(I.shape[2]): # return rows that are full of zeros
+    I[np.all(np.isnan(I[:,:,k]),axis=1),:,k] = 0
 A = man.absorption_matrix.values[:,:,notnan]
 
 ###########################################################
@@ -109,6 +119,7 @@ for i in range(n_nodes):
 
 for i in range(n_perf):
     col = I[:,i,:].reshape(-1,1)
+    col[np.isnan(col)] = 0
     all_matrix = np.hstack((all_matrix,col))
 
 for i in range(n_spec):
@@ -127,6 +138,24 @@ df_matrix.to_csv(os.path.join(folder,'df_matrix.csv'))
 # Extract x and y
 x = np.nanmean(I,axis=1).ravel().reshape(-1,1) # average along performance parameters (assumes equal weighting)
 y = np.nanmean(A,axis=1).ravel().reshape(-1,1) # average along input specs (assumes equal weighting)
+
+fig1, ax1 = plt.subplots(figsize=(7, 8))
+ax1.set_xlabel('Impact on performance')
+ax1.set_ylabel('Frequency')
+
+fig2, ax2 = plt.subplots(figsize=(7, 8))
+ax2.set_xlabel('Change absorption capability')
+ax2.set_ylabel('Frequency')
+
+for i in range(len(man.margin_nodes)):
+    x_node = np.nanmean(I,axis=1)[i,:]
+    y_node = np.nanmean(A,axis=1)[i,:]
+    ax1.hist(x_node,label="%i" %(i+1))
+    ax2.hist(y_node,label="%i" %(i+1))
+
+ax1.legend()
+ax2.legend()
+plt.show()
 
 mean_matrix = np.empty((0,1))
 for i in range(n_nodes):
@@ -147,6 +176,7 @@ df_mean.to_csv(os.path.join(folder,'df_mean.csv'))
 # Total matrix generation
 columns = []
 total_matrix = np.empty((n_samples,0))
+excess_matrix = np.empty((1000,0))
 
 for i in range(n_spec):
     columns += ["S%i" %(i+1)]
@@ -162,6 +192,8 @@ for i in range(n_nodes):
     columns += ["E%i" %(i+1)]
     col = man.margin_nodes[i].excess.values[1:][notnan].reshape(-1,1)
     total_matrix = np.hstack((total_matrix,col))
+    col = man.margin_nodes[i].excess.values[1:].reshape(-1,1)
+    excess_matrix = np.hstack((excess_matrix,col))
 
 for i in range(n_nodes):
     columns += ["I%i" %(i+1)]
@@ -175,7 +207,8 @@ for i in range(n_nodes):
 
 df_total = pd.DataFrame(total_matrix, columns=columns)
 df_total.to_csv(os.path.join(folder,'df_total.csv'))
-
+reliability = len(excess_matrix[np.all(excess_matrix > 0, axis=1),:])/1000
+print("reliability is: %.3f" %reliability)
 ###########################################################
 # Scatter plot of average absorption and impact
 # create empty figure
@@ -196,16 +229,16 @@ df_total.to_csv(os.path.join(folder,'df_total.csv'))
 # Calculate distance metric
 
 # Extract x and y
-x = np.mean(I,axis=(1, 2)).reshape(-1,len(man.margin_nodes))
-y = np.mean(A,axis=(1, 2)).reshape(-1,len(man.margin_nodes))
+x = np.nanmean(I,axis=(1, 2)).reshape(-1,len(man.margin_nodes))
+y = np.nanmean(A,axis=(1, 2)).reshape(-1,len(man.margin_nodes))
 
 ###########################################################
 # get bounds
 lb = np.array([-0.009490439, 1.143639527])
 ub = np.array([0.3172583, 4.1707973])
 
-lb = np.array([-0.0639315,  0.       ])
-ub = np.array([ 0.33307271, 13.32143689])
+# lb = np.array([-0.0639315,  0.       ])
+# ub = np.array([ 0.33307271, 13.32143689])
 
 lb_n = np.array([0, 0])
 ub_n = np.array([1, 1])
