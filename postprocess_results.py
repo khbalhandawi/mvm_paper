@@ -60,10 +60,9 @@ get_man_combined = get_man_combined_poly
 # get_man_combined = get_man_combined_circ
 
 # get man object for the fea problem and load it
-folder = os.path.join(base_folder,'C1'); lean = 0.0; height = 15.0
+# folder = os.path.join(base_folder,'C1'); lean = 0.0; height = 15.0
 # folder = os.path.join(base_folder,'C2'); lean = 30.0; height = 15.0
-# folder = os.path.join(base_folder,'C3'); lean = 0.0; height = 17.0
-# folder = os.path.join(base_folder,'C4'); lean = 30.0; height = 17.0
+folder = os.path.join(base_folder,'C3'); lean = 0.0; height = 17.0
 
 # off-the shelf parts
 widths = list(range(60,120+10,10))
@@ -102,7 +101,13 @@ I = man.impact_matrix.values[:,:,notnan]
 I[I==0] = np.nan # remove zero impact values from averaging
 for k in range(I.shape[2]): # return rows that are full of zeros
     I[np.all(np.isnan(I[:,:,k]),axis=1),:,k] = 0
+
 A = man.absorption_matrix.values[:,:,notnan]
+A[A==0] = np.nan # remove zero impact values from averaging
+for k in range(A.shape[2]): # return rows that are full of zeros
+    A[np.all(np.isnan(A[:,:,k]),axis=1),:,k] = 0
+
+# A = man.absorption_matrix.values[:,:,notnan]
 
 ###########################################################
 # create a dataframe of impact and absorptions
@@ -124,6 +129,7 @@ for i in range(n_perf):
 
 for i in range(n_spec):
     col = A[:,i,:].reshape(-1,1)
+    col[np.isnan(col)] = 0
     all_matrix = np.hstack((all_matrix,col))
 
 df_matrix = pd.DataFrame(all_matrix, columns=columns)

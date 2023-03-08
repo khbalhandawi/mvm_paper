@@ -17,15 +17,15 @@ HOME_WD <- Sys.getenv("GITDIR")
 ## Where the MCMC chains are stored
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
-# # For fea example (polygonal)
-# folder <- "strut_fea_poly"
-# node_labels <- c(expression(e1), expression(e2), expression(e3))
-# perf_labels <- c("$W$","$c_{raw}$","$T_1$","$T_2$","$B_x$","$B_y$")
+# For fea example (polygonal)
+folder <- "strut_fea_poly"
+node_labels <- c(expression(e1), expression(e2), expression(e3))
+perf_labels <- c("$W$","$c_{raw}$","$T_1$","$T_2$","$B_x$","$B_y$")
 
-# For fea example (circumferential)
-folder <- "strut_fea_circ"
-node_labels <- c(expression(e1), expression(e2), expression(e3), expression(e4))
-perf_labels <- c("$W$","$c_{raw}$", "$W_{shroud}$", "$c_{shroud}$","$T_1$","$T_2$","$B_x$","$B_y$")
+# # For fea example (circumferential)
+# folder <- "strut_fea_circ"
+# node_labels <- c(expression(e1), expression(e2), expression(e3), expression(e4))
+# perf_labels <- c("$W$","$c_{raw}$", "$W_{shroud}$", "$c_{shroud}$","$T_1$","$T_2$","$B_x$","$B_y$")
 
 # # For simple example
 # folder <- "strut"

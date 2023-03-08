@@ -571,14 +571,14 @@ if (exists("df_mean_agg_poly") & exists("df_mean_agg_circ")) {
     geom_point(aes(shape=concept,size=concept,alpha=concept)) +
     scale_y_continuous(limits=c(0,1)) +
     scale_x_continuous(limits=c(0,1)) +
-    scale_colour_manual(values=c(palette),
+    scale_colour_manual(values = c(hue_pal()(3),"#C77CFF"), # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
                         labels = unname(TeX(node_labels)),
                         guide = guide_legend(override.aes=aes(size=4.0))) +
     scale_shape_manual(values=shapes) +
     scale_size_manual(values=sizes) +
     scale_alpha_manual(values=alphas,
                        guide = guide_legend(override.aes=aes(alpha=NA, size=4.0))) +
-    guides(shape=guide_legend(nrow=2,byrow=TRUE)) +
+    guides(shape=guide_legend(nrow=1,byrow=TRUE)) +
     labs(color="margin node\n") +
     xlab("Impact on performance") +
     ylab("Change absorption capability") +
@@ -604,7 +604,7 @@ if (exists("df_line_agg_poly") & exists("df_line_agg_circ")) {
     geom_line(data=ref_line_data %>% mutate(concept=NA) %>% mutate(node=NA), aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
     scale_y_continuous(limits=c(0,1)) +
     scale_x_continuous(limits=c(0,1)) +
-    scale_colour_manual(values=c(palette)) +
+    scale_colour_manual(values=c(hue_pal()(3),"#C77CFF")) + # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
     scale_shape_manual(values=shapes) +
     labs(color="margin node\n") +
     xlab("Impact on performance") +
@@ -620,7 +620,7 @@ if (exists("df_line_agg_poly") & exists("df_line_agg_circ")) {
 if (exists("p_comb") & exists("p_dist_comb")) {
   
   # Combine dist and scatter plots together
-  p_comb_export <- p_comb + theme(legend.position="top", legend.direction ="horizontal")
+  p_comb_export <- p_comb + theme(legend.position="top", legend.box ="horizontal")
   p_comb_export
   legend <- get_legend(p_comb_export)
   

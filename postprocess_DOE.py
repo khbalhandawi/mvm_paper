@@ -62,7 +62,7 @@ if __name__ == "__main__":
     random.seed(10)
 
     # case 1:
-    base_dir = "strut_fea_poly"
+    base_dir = "strut_fea_poly.bak"
     get_man_combined = get_man_combined_poly
     strategies = ['manual',]*3
     strategy_name = 'manual'
@@ -215,12 +215,12 @@ if __name__ == "__main__":
     fkwargs = kwargs
     fkwargs['mans'] = man_objs
 
-    if not resume:
-        for item in glob.glob(base_folder+"/d*"):
-            if os.path.isdir(item):
-                shutil.rmtree(item)
-    results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
-    # sys.exit(0)
+    # if not resume:
+    #     for item in glob.glob(base_folder+"/d*"):
+    #         if os.path.isdir(item):
+    #             shutil.rmtree(item)
+    # results = parallel_sampling(evaluate_design_manual,vargs_iterator,vkwargs_iterator,fargs,fkwargs,num_threads=num_threads) # For manual case, uncomment
+    # # sys.exit(0)
     
     #---------------------------------------------------
     # Load evaluations
@@ -244,27 +244,33 @@ if __name__ == "__main__":
     multi_index = []
     for id,design in enumerate(design_doe):
         excess_vector = np.empty((0,n_samples))
+        points = np.empty((0,2))
 
         sys.stdout.write("Progress: %d%%   \r" % ((id / n_designs) * 100))
         sys.stdout.flush()
+
+        folder = os.path.join(base_folder,'d%i'%id)
+        man.load(man_name,folder=base_folder) # load the basic MAN
+        man.load(man_name,folder=folder,results_only=True) # load the sampled data
+
+        impact_values = man.impact_matrix.values
+        # impact_values[impact_values==0] = np.nan # remove zero impact values from averaging
+        # for k in range(impact_values.shape[2]): # return rows that are full of zeros
+        #     impact_values[np.all(np.isnan(impact_values[:,:,k]),axis=1),:,k] = 0
+
+        absorption_values = man.absorption_matrix.values
+        # absorption_values[absorption_values==0] = np.nan # remove zero impact values from averaging
+        # for k in range(absorption_values.shape[2]): # return rows that are full of zeros
+        #     absorption_values[np.all(np.isnan(absorption_values[:,:,k]),axis=1),:,k] = 0
 
         dist = 0.0; dist_n = 0.0
         for n,node in enumerate(man.margin_nodes):
             
             multi_index += [(id,n)] # for nodal dataframe
 
-            folder = os.path.join(base_folder,'d%i'%id)
-            man.load(man_name,folder=base_folder) # load the basic MAN
-            man.load(man_name,folder=folder,results_only=True) # load the sampled data
-
-            impact_values = man.impact_matrix.values
-            impact_values[impact_values==0] = np.nan # remove zero impact values from averaging
-            for k in range(impact_values.shape[2]): # return rows that are full of zeros
-                impact_values[np.all(np.isnan(impact_values[:,:,k]),axis=1),:,k] = 0
-
             # calculate means
             I = impact_values[n,:,:]
-            A = man.absorption_matrix.values[n,:,:]
+            A = absorption_values[n,:,:]
 
             i = np.nanmean(I,axis=1) # absorption
             a = np.nanmean(A,axis=1) # impact
@@ -272,7 +278,8 @@ if __name__ == "__main__":
             i_n = scaling(i,lb[0],ub[0],1) # absorption
             a_n = scaling(a,lb[1],ub[1],1) # impact
 
-            point = np.array([np.nanmean(i), np.mean(a)]) # nan mean to ignore nans (only for I!!)
+            point = np.array([np.mean(i[i!=0]), np.mean(a[a!=0])]) # nan mean to ignore nans (only for I!!)
+            points = np.vstack((points,point.reshape(-1,2)))
             pn, dist_node = nearest(lb, ub, point)
             dist += dist_node
             # point_n = np.array([np.mean(i_n), np.mean(a_n)])
@@ -320,8 +327,8 @@ if __name__ == "__main__":
         reliability = excess_feasible.shape[1] / excess_vector.shape[1]
 
         # mean impact and absorption
-        mean_i = np.nanmean(impact_values,axis=(1,2)) # absorption
-        mean_a = np.nanmean(man.absorption_matrix.values,axis=(1,2)) # impact
+        mean_i = points[:,0] # impact
+        mean_a = points[:,1] # absorption
 
         # construct dict
         total_dict = {'id':id}
