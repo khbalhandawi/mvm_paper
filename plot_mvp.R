@@ -590,6 +590,83 @@ if (exists("df_mean_agg_poly") & exists("df_mean_agg_circ")) {
   
 }
 
+presentation <- TRUE
+if (exists("df_mean_agg_poly") & exists("df_mean_agg_circ") & presentation) {
+  
+  chosen <- c('')
+  # chosen <- c('1A')
+  # chosen <- c('1A','1B')
+  # chosen <- c('1A','1B','2A')
+  # chosen <- c('1A','1B','1C','1D','2A','2B','2C','2D')
+
+  df_mean_comb_pres <- do.call("rbind", list(df_mean_agg_poly,df_mean_agg_circ)) %>%
+    mutate(concept=as.factor(concept)) %>% filter(concept %in% chosen)
+  
+  # set up shapes
+  shapes <- c(15,18,16,17,3,4,8,6)
+  names(shapes) <- unique(df_mean_comb$concept)
+  sizes <- c(2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0)
+  names(sizes) <- unique(df_mean_comb$concept)
+  strokes <- c(seq(from=0.8,to=0.2,by=-0.2),seq(from=0.8,to=0.2,by=-0.2))
+  names(strokes) <- unique(df_mean_comb$concept)
+  alphas <- c(seq(from=0.8,to=0.2,by=-0.2),seq(from=0.8,to=0.2,by=-0.2))
+  names(alphas) <- unique(df_mean_comb$concept)
+  
+  node_labels_pres <- c("$w_{vane}$", "material", "$n_{struts}$", "$t_{shroud}$")
+  
+  p_pres <- ggplot(df_mean_comb_pres, aes(x=Impact_n, y=Absorption_n, color=node)) +
+    geom_line(data=ref_line_data, aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
+    # geom_point(data=ref_line_data, shape=1, color="black", size=2, stroke=0.1, alpha=0.1) +
+    geom_point(aes(shape=concept,size=concept,alpha=concept)) +
+    scale_y_continuous(limits=c(0,1)) +
+    scale_x_continuous(limits=c(0,1)) +
+    scale_colour_manual(values = c(hue_pal()(3),"#C77CFF"), # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
+                        labels = unname(TeX(node_labels_pres)),
+                        guide = guide_legend(override.aes=aes(size=4.0))) +
+    scale_shape_manual(values=shapes) +
+    scale_size_manual(values=sizes) +
+    scale_alpha_manual(values=alphas,
+                       guide = guide_legend(override.aes=aes(alpha=NA, size=4.0))) +
+    guides(shape=guide_legend(nrow=1,byrow=TRUE)) +
+    labs(color="margin node\n") +
+    xlab("Impact on performance") +
+    ylab("Change absorption capability") +
+    # guides(color=guide_legend(override.aes=legend_aes)) +
+    theme_pubr() +
+    theme_tufte() +
+    theme(
+      axis.text.x=element_text(size=18,family=""),
+      axis.text.y=element_text(size=18,family=""),
+      axis.title.x=element_text(size=24,family="",vjust=-1),
+      axis.title.y=element_text(size=24,family=""),
+      
+      ## Axis lines
+      axis.line = element_line(colour="black"),
+      axis.ticks = element_line(),
+      
+      ## Title
+      plot.title = element_text(family="",size=10,face="bold",hjust=0.5),
+      plot.tag = element_text(family="",size=10,face="bold"),
+      
+      ## Legends
+      legend.title=element_text(size=18,family="",face="italic"),
+      legend.text=element_text(size=15,family=""),
+      legend.key.size= unit(0.5, "cm"),
+      legend.margin = margin(0,0,0,0, "cm"),
+      ## Strips for facet_wrap
+      strip.text=element_text(size=8,family="",face="bold"),
+      #strip.background=element_rect(fill="#f0f0f0")
+      strip.background=element_blank(),
+    ) +
+    theme(legend.position="top", legend.box ="vertical")
+  p_pres
+  
+  ggsave(paste0(main_wd,"images/","scatter_all_pres_",paste(chosen,collapse="_"),".pdf"),
+         plot=p_pres,
+         dpi=320, height=7.5, width=7.5)
+  
+}
+
 if (exists("df_line_agg_poly") & exists("df_line_agg_circ")) {
   
   df_line_comb <- do.call("rbind", list(df_line_agg_poly,df_line_agg_circ)) %>%
