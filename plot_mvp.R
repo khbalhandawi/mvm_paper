@@ -19,33 +19,33 @@ HOME_WD <- Sys.getenv("GITDIR")
 ## Where the working directory is
 main_wd <- paste0(HOME_WD,"/mvm_paper/")
 
-# # For fea example (polygonal)
-# folder <- "strut_fea_poly"
-# legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
-# legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
-# node_labels <- c("$e_1$", "$e_2$", "$e_3$")
-# shapes <- c(15,18,16,17)
-# concept_labels <- c("1A", "1B", "1C", "1D")
-# thetas <- c(0.00, 30.0, 0.00, 30.0)
-# heights <- c(15.0,15.0,20.0,20.0)
-# palette <- hue_pal()(3) # "#F8766D","#00BA38","#619CFF"
-# # fea limits
-# x0 <- array(c(-0.009630757, 1.152203562))
-# x1 <- array(c(0.3329746, 4.3151886))
-
-# For fea example (circumferential)
-folder <- "strut_fea_circ"
-legend_aes <- list(linetype=c(0,0,0,0,2), shape=c(16,16,16,16,NA))
-legend_dist_aes <- list(linetype=c(2,2,2,2,2), shape=c(16,16,16,16,NA))
-node_labels <- c("$e_1$", "$e_2$", "$e_3$", "$e_4$")
-shapes <- c(3,4,8,6)
-concept_labels <- c("2A", "2B", "2C", "2D")
+# For fea example (polygonal)
+folder <- "strut_fea_poly"
+legend_aes <- list(linetype=c(0,0,0,2), shape=c(16,16,16,NA))
+legend_dist_aes <- list(linetype=c(2,2,2,2), shape=c(16,16,16,NA))
+node_labels <- c("$e_1$", "$e_2$", "$e_3$")
+shapes <- c(15,18,16,17)
+concept_labels <- c("1A", "1B", "1C", "1D")
 thetas <- c(0.00, 30.0, 0.00, 30.0)
 heights <- c(15.0,15.0,20.0,20.0)
-palette <- c(hue_pal()(3),"#C77CFF") # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
+palette <- hue_pal()(3) # "#F8766D","#00BA38","#619CFF"
 # fea limits
 x0 <- array(c(-0.009630757, 1.152203562))
 x1 <- array(c(0.3329746, 4.3151886))
+
+# # For fea example (circumferential)
+# folder <- "strut_fea_circ"
+# legend_aes <- list(linetype=c(0,0,0,0,2), shape=c(16,16,16,16,NA))
+# legend_dist_aes <- list(linetype=c(2,2,2,2,2), shape=c(16,16,16,16,NA))
+# node_labels <- c("$e_1$", "$e_2$", "$e_3$", "$e_4$")
+# shapes <- c(3,4,8,6)
+# concept_labels <- c("2A", "2B", "2C", "2D")
+# thetas <- c(0.00, 30.0, 0.00, 30.0)
+# heights <- c(15.0,15.0,20.0,20.0)
+# palette <- c(hue_pal()(3),"#C77CFF") # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
+# # fea limits
+# x0 <- array(c(-0.009630757, 1.152203562))
+# x1 <- array(c(0.3329746, 4.3151886))
 
 # # For simple example
 # folder <- "strut"
@@ -681,16 +681,24 @@ if (exists("df_line_agg_poly") & exists("df_line_agg_circ")) {
     geom_line(data=ref_line_data %>% mutate(concept=NA) %>% mutate(node=NA), aes(x=X_n, y=neutral_n), color="black", linetype="dashed") +
     scale_y_continuous(limits=c(0,1)) +
     scale_x_continuous(limits=c(0,1)) +
-    scale_colour_manual(values=c(hue_pal()(3),"#C77CFF")) + # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
+    scale_colour_manual(values=c(hue_pal()(3),"#C77CFF"), # "#F8766D" "#00BA38" "#619CFF" "#C77CFF"
+                        labels = unname(TeX(c(node_labels,"$e_4$"))),
+                        guide = guide_legend(override.aes=aes(size=4.0))) +
     scale_shape_manual(values=shapes) +
     labs(color="margin node\n") +
     xlab("Impact on performance") +
     ylab("Change absorption capability") +
     # guides(color=guide_legend(override.aes=legend_aes)) +
     theme_pubr() +
-    export_theme +
-    labs(tag="(b)")
+    export_theme + 
+    theme(legend.position=c(0.9, 0.42),
+          plot.margin=unit(c(0.5,0.5,0.5,0.5), "cm"))
+    # labs(tag="(b)")
   p_dist_comb
+  
+  ggsave(paste0(main_wd,"images/","scatter_line_only.pdf"),
+         plot=p_dist_comb,
+         dpi=320, height=5.5, width=6.5)
   
 }
 
@@ -725,6 +733,7 @@ if (exists("p_comb") & exists("p_dist_comb")) {
          dpi=320, height=6.5, width=13)
   
 }
+
 
 ########################################
 ## 6. mean plot of single concept
@@ -980,16 +989,20 @@ dir.create(file.path(paste0(img_dir,"C1/")), showWarnings=FALSE, recursive=TRUE)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_mean.pdf"),
        plot=p_mean,
+       device = "pdf",
        dpi=320, width=8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf.pdf"),
        plot=p_cdf,
+       device = "pdf",
        dpi=320, width=8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf_E3.pdf"),
        plot=p_cdf_E,
+       device = "pdf",
        dpi=320, width=8, height=8)
 
 ggsave(paste0(main_wd,img_dir,"C1/scatter_cdf_pdf.pdf"),
        plot=p_cdf_pdf,
+       device = "pdf",
        dpi=320, width=8, height=8)

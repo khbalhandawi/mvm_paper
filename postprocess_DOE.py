@@ -58,18 +58,18 @@ def evaluate_design_manual(i: int, design: List[Union[int,float]], mans: List[Ma
 
 if __name__ == "__main__":
 
-    resume = True
+    resume = False
     random.seed(10)
 
-    # case 1:
-    base_dir = "strut_fea_poly.bak"
-    get_man_combined = get_man_combined_poly
-    strategies = ['manual',]*3
-    strategy_name = 'manual'
-    sampling = 'stochastic'
-    n_epochs = 50
-    d_labels = ['height','lean angle','width','material','n_struts']
-    perf_labels = ['weight','cost']
+    # # case 1:
+    # base_dir = "strut_fea_poly.bak"
+    # get_man_combined = get_man_combined_poly
+    # strategies = ['manual',]*3
+    # strategy_name = 'manual'
+    # sampling = 'stochastic'
+    # n_epochs = 50
+    # d_labels = ['height','lean angle','width','material','n_struts']
+    # perf_labels = ['weight','cost']
 
     # # case 2:
     # base_dir = "strut_fea_circ"
@@ -101,15 +101,15 @@ if __name__ == "__main__":
     # d_labels = ['height','lean angle','width','material','n_struts','t_shroud']
     # perf_labels = ['weight','cost','W_shroud','c_shroud']
 
-    # # case 5:
-    # base_dir = "strut_fea_poly"
-    # get_man_combined = get_man_combined_poly
-    # strategies = ['min_excess',]*3
-    # strategy_name = 'minexcess'
-    # sampling = 'deterministic'
-    # n_epochs = 1
-    # d_labels = ['height','lean angle','width','material','n_struts']
-    # perf_labels = ['weight','cost']
+    # case 5:
+    base_dir = "strut_fea_poly"
+    get_man_combined = get_man_combined_poly
+    strategies = ['min_excess',]*3
+    strategy_name = 'minexcess'
+    sampling = 'deterministic'
+    n_epochs = 1
+    d_labels = ['height','lean angle','width','material','n_struts']
+    perf_labels = ['weight','cost']
 
     # # case 6:
     # base_dir = "strut_fea_circ"
@@ -278,7 +278,7 @@ if __name__ == "__main__":
             i_n = scaling(i,lb[0],ub[0],1) # absorption
             a_n = scaling(a,lb[1],ub[1],1) # impact
 
-            point = np.array([np.mean(i[i!=0]), np.mean(a[a!=0])]) # nan mean to ignore nans (only for I!!)
+            point = np.array([np.mean(i), np.mean(a)]) # nan mean to ignore nans (only for I!!)
             points = np.vstack((points,point.reshape(-1,2)))
             pn, dist_node = nearest(lb, ub, point)
             dist += dist_node

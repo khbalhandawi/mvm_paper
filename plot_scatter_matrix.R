@@ -235,7 +235,9 @@ p_node
 ## 3. Export plots
 ########################################
 ggsave(paste0(main_wd,img_dir,"scatter_pairs.pdf"),
+       device = "pdf",
        plot = p_pairs, height=6, width=9)
 
 ggsave(paste0(main_wd,img_dir,"scatter_pairs_E3.pdf"),
+       device = "pdf",
        plot = p_node, height=6, width=9)
